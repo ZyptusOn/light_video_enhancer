@@ -57,6 +57,10 @@ python nvidia_video_enhancer/build_exe.py
 
 FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
+## AI 生成声明
+
+本项目所有代码由 **DeepSeekV4Pro + TRAE Work** AI 辅助生成。
+
 ## 许可
 
 本项目 Python/C++ 源码以 [MIT License](LICENSE) 许可分发。  
