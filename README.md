@@ -1,7 +1,7 @@
 # Light Video Enhancer
 
 轻量级视频增强工具，利用 GPU 硬件加速实现超分辨率、帧插值和编码。
-其中超分辨率RTX VSR方法为伪装d3d11播放器实现。
+其中超分辨率 RTX VSR 方法为伪装 d3d11 播放器实现。
 
 ## 功能
 
@@ -25,7 +25,7 @@
 
 ### 方式一：直接使用 .exe (推荐)
 
-从release中下载 `.exe` 文件，双击启动 GUI，或拖拽视频文件到 .exe 上自动处理。
+从 release 中下载 `.exe` 文件，双击启动 GUI，或拖拽视频文件到 .exe 上自动处理。
 
 ### 方式二：从源码运行
 
@@ -60,7 +60,7 @@ FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
 ## AI 生成声明
 
-本项目所有代码由 **DeepSeekV4Pro + TRAE Work** AI 辅助生成。
+本项目所有代码由 **DeepSeek V4 Pro + TRAE Work** AI 辅助生成。
 
 ## 许可
 
