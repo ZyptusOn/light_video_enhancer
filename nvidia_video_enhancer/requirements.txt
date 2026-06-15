@@ -1,0 +1,7 @@
+numpy>=1.24
+opencv-python>=4.8
+tqdm>=4.65
+# 可选: NVIDIA VFX SDK 超分
+# nvidia-vfx
+# 可选: PyTorch (RIFE 插帧 / nvidia-vfx 引擎)
+# torch

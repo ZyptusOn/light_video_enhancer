@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+*.spec
+
+# PyInstaller
+视频增强.exe
+
+# 输出视频
+*_x*.mp4
+*_x*.mkv
+*_x*.mov
+*_f*.mp4
+*_f*.mkv
+debug*.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# DLL（保留包内预编译的）
+*.dll
+*.so
+*.lib
+*.exp
+*.o
+*.obj
+!nvidia_video_enhancer/ffmpeg_dlls/*
+!nvidia_video_enhancer/ffmpeg_bridge/*.dll
+!nvidia_video_enhancer/bridge/*.dll
+
+# VLC 源码（仅参考）
+VLC/
+
+# ffmpeg 编译
+ffmpeg/build/
+ffmpeg/*.o
+ffmpeg/*.d
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 临时
+tmp/
+temp/
+
+# 参考代码 / 外部资源（不上传）
+svp/
+nvidia-vfx-python-samples-main/
+ffmpeg/
+input.mp4
+*.mp4
+*.mkv
+*.mov
+*.avi
