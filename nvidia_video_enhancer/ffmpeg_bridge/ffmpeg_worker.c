@@ -239,9 +239,12 @@ void* nve_encoder_open(const char *path, int w, int h, double fps,
     s->codec_ctx = avcodec_alloc_context3(codec);
     s->codec_ctx->width    = s->enc_w;
     s->codec_ctx->height   = s->enc_h;
-    s->codec_ctx->time_base = (AVRational){1, (int)fps};
-    s->codec_ctx->framerate = (AVRational){(int)fps, 1};
-    s->codec_ctx->gop_size = (int)fps * 2;
+    {
+        AVRational fr = av_d2q(fps, 1000000);
+        s->codec_ctx->time_base = av_inv_q(fr);
+        s->codec_ctx->framerate = fr;
+    }
+    s->codec_ctx->gop_size = (int)(fps * 2.0 + 0.5);
     s->codec_ctx->max_b_frames = 0;
 
     s->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
