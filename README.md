@@ -34,7 +34,7 @@
 
 ### 方式一：直接使用 .exe (推荐)
 
-下载 `视频增强.exe`，双击启动 GUI，或拖拽视频文件到 .exe 上自动处理。
+从 release 中下载 `.exe` 文件，双击启动 GUI，或拖拽视频文件到 .exe 上自动处理。
 
 ### 方式二：从源码运行
 
@@ -69,7 +69,7 @@ FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
 ## AI 生成声明
 
-本项目所有代码由 **DeepSeekV4Pro + TRAE Work** AI 辅助生成。
+本项目所有代码由 **DeepSeek V4 Pro + TRAE Work** AI 辅助生成。
 
 ## 许可
 
