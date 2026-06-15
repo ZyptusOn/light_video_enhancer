@@ -1,20 +1,22 @@
 # Light Video Enhancer
 
-轻量级视频增强工具，利用 NVIDIA GPU 硬件加速实现超分辨率、帧插值和编码。
+轻量级视频增强工具，利用 GPU 硬件加速实现超分辨率、帧插值和编码。
 
 ## 功能
 
-- **超分辨率** — NVIDIA RTX VSR (D3D11 Video Processor) / 双三次 / Lanczos，1080p → 4K
-- **帧插值** — DIS 光流 (SVP 风格) / Farneback 光流 / 混合，支持 2x/3x/4x 倍率
-- **编码** — NVENC H.264 / HEVC / AV1 硬件编码
+- **超分辨率** — NVIDIA RTX VSR / Intel VSR / AMD D3D11 VP / 双三次 / Lanczos，1080p → 4K
+- **帧插值** — DIS 光流 (SVP 风格) / Farneback 光流 / 混合 / RIFE AI，支持 2x/3x/4x 倍率
+- **编码** — NVENC H.264 / HEVC / AV1 硬件编码 (NVIDIA)，软件编码回退
 - **打包** — 可编译为单个 .exe，无需安装 Python 或 FFmpeg
 
 ## 前提条件
 
 - Windows 10/11
-- NVIDIA RTX 30/40/50 系列显卡
-- NVIDIA 显卡驱动 (最新 Game Ready 或 Studio)
-- NVIDIA 控制面板 → 视频 → 启用 RTX 视频增强 (仅 VSR 超分需要)
+- 支持 Direct3D 11 Video Processor API 的显卡：
+  - **NVIDIA** RTX 30/40/50 系列 — 完整 VSR AI 超分 + NVENC 硬件编码
+  - **Intel** Arc / 核显 (11代+) — Intel VSR 超分
+  - **AMD** — D3D11 Video Processor (无 AI 增强)，编码回退到软件
+- NVIDIA 用户：控制面板 → 视频 → 启用 RTX 视频增强 (AI 超分前提)
 
 ## 快速开始
 
