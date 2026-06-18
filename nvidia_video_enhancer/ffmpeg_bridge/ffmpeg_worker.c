@@ -245,7 +245,6 @@ void* nve_encoder_open(const char *path, int w, int h, double fps,
         s->codec_ctx->framerate = fr;
     }
     s->codec_ctx->gop_size = (int)(fps * 2.0 + 0.5);
-    s->codec_ctx->max_b_frames = 0;
 
     s->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -260,10 +259,13 @@ void* nve_encoder_open(const char *path, int w, int h, double fps,
     if (strstr(codec_name, "nvenc")) {
         av_dict_set(&opts, "cq", crf_str, 0);
         av_dict_set(&opts, "rc", "vbr", 0);
-        av_dict_set(&opts, "tune", "ll", 0);
-        av_dict_set(&opts, "profile", "high", 0);
         av_dict_set(&opts, "async_depth", "4", 0);
-        av_dict_set(&opts, "no-scenecut", "1", 0);
+
+        if (strstr(codec_name, "h264")) {
+            av_dict_set(&opts, "tune", "ll", 0);
+            av_dict_set(&opts, "profile", "high", 0);
+            av_dict_set(&opts, "no-scenecut", "1", 0);
+        }
     } else {
         av_dict_set(&opts, "crf", crf_str, 0);
     }
@@ -304,6 +306,8 @@ void* nve_encoder_open(const char *path, int w, int h, double fps,
                             out_st->time_base = probe_ctx->streams[i]->time_base;
                         else
                             out_st->time_base = (AVRational){1, 48000};
+                        if (out_st->codecpar->frame_size <= 0)
+                            out_st->codecpar->frame_size = 1024;
                         idx++;
                     }
                 }
@@ -366,8 +370,10 @@ int nve_encoder_write_frame(void *handle, const uint8_t *bgr_data, int w, int h)
     sws_scale(s->sws_ctx, src_data, src_linesize, 0, h, dst_data, dst_linesize);
 
     s->frame->pts = s->pts++;
-    avcodec_send_frame(s->codec_ctx, s->frame);
-
+    while (avcodec_send_frame(s->codec_ctx, s->frame) == AVERROR(EAGAIN)) {
+        avcodec_receive_packet(s->codec_ctx, s->pkt);
+        av_packet_unref(s->pkt);
+    }
     while (1) {
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
         if (ret < 0) break;
@@ -409,7 +415,10 @@ int nve_encoder_write_yuv(void *handle, const uint8_t *yuv_data, int w, int h)
         memcpy(s->frame->data[2] + row * v_ls, src_v + row * (w / 2), w / 2);
 
     s->frame->pts = s->pts++;
-    avcodec_send_frame(s->codec_ctx, s->frame);
+    while (avcodec_send_frame(s->codec_ctx, s->frame) == AVERROR(EAGAIN)) {
+        avcodec_receive_packet(s->codec_ctx, s->pkt);
+        av_packet_unref(s->pkt);
+    }
 
     while (1) {
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);

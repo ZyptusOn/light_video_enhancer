@@ -18,9 +18,10 @@ gcc -shared -O2 \
     -o "$SCRIPT_DIR/ffmpeg_worker.dll" \
     "$SCRIPT_DIR/ffmpeg_worker.c" \
     -I"$FFMPEG_BUILD/include" \
-    -L"$FFMPEG_BUILD/lib" \
-    -L"$FFMPEG_BUILD/bin" \
-    -lavcodec -lavformat -lavutil -lswscale \
+    "$FFMPEG_BUILD/bin/avcodec-62.dll" \
+    "$FFMPEG_BUILD/bin/avformat-62.dll" \
+    "$FFMPEG_BUILD/bin/avutil-60.dll" \
+    "$FFMPEG_BUILD/bin/swscale-9.dll" \
     -static-libgcc -static-libstdc++
 
 echo ""

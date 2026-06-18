@@ -2,6 +2,9 @@ import argparse
 import os
 import sys
 from .config import ProcessConfig, EncodeConfig
+from ._logging import get_logger
+
+_log = get_logger(__name__)
 
 
 def _auto_output(input_path: str, scale: float, fi_engine: str,
@@ -14,7 +17,8 @@ def _auto_output(input_path: str, scale: float, fi_engine: str,
     if fi_engine != "none":
         tags.append(f"f{fi_mult}")
     suffix = "_" + "_".join(tags) if tags else ""
-    return os.path.join(dirname, f"{base}{suffix}.{container}")
+    safe_container = "".join(c for c in container if c.isalnum() or c in "._-")
+    return os.path.join(dirname, f"{base}{suffix}.{safe_container}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,12 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="输出高度 (覆盖 --scale)"
     )
     parser.add_argument(
-        "--sr-engine", choices=["dxva_vsr", "nvvfx", "bicubic", "lanczos"],
+        "--sr-engine", choices=["dxva_vsr", "nvvfx", "esrgan", "bicubic", "lanczos", "realcugan", "realesrgan"],
         default="nvvfx",
         help="超分引擎"
     )
     parser.add_argument(
-        "--fi-engine", choices=["dis", "rife", "torch_flow", "optical_flow", "blend", "none"],
+        "--fi-engine", choices=["dis", "rife", "rife_ncnn", "torch_flow", "optical_flow", "blend", "none"],
         default="optical_flow",
         help="插帧引擎"
     )
@@ -67,6 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start", type=float, help="起始时间 (秒)")
     parser.add_argument("--duration", type=float, help="持续时长 (秒)")
     parser.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
+    parser.add_argument("--sr-first", action="store_true",
+                        help="先超分再插帧 (默认: 先插帧再超分)")
     return parser
 
 
@@ -80,7 +86,7 @@ def parse_args(argv=None) -> ProcessConfig:
             args.input, args.scale, args.fi_engine,
             args.fi_multiplier, args.container,
         )
-        print(f"[信息] 自动输出: {output}")
+        _log.info("自动输出: %s", output)
 
     encode = EncodeConfig(
         codec=args.codec,
@@ -105,5 +111,17 @@ def parse_args(argv=None) -> ProcessConfig:
         start_time=args.start,
         duration=args.duration,
         device=args.device,
+        sr_first=args.sr_first,
     )
+
+    gpu_engines = {"dxva_vsr", "nvvfx", "rife", "torch_flow"}
+    if args.device == "cpu":
+        conflicts = []
+        if args.sr_engine in gpu_engines:
+            conflicts.append(f"超分引擎 {args.sr_engine}")
+        if args.fi_engine in gpu_engines:
+            conflicts.append(f"插帧引擎 {args.fi_engine}")
+        if conflicts:
+            parser.error(f"{'、'.join(conflicts)} 需要 GPU，不能与 --device cpu 一起使用")
+
     return config

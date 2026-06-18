@@ -2,6 +2,12 @@
 """PyInstaller 入口 — 双击 → GUI / 拖拽文件 → 自动处理。
 
 此文件放在 nvidia_video_enhancer/ 同级目录，PyInstaller 从这里打包。
+
+引擎选择策略:
+  - torch (rife/pytorch) 仅在用户显式选择时才扫描系统 Python 环境
+  - ncnn (rife_ncnn/realcugan) 无需任何外部依赖
+  - dxva_vsr 需要编译的 bridge DLL
+  - nvvfx 需要 torch + nvidia-vfx
 """
 
 import sys
@@ -21,7 +27,11 @@ def _detect_best_engines():
     sr = "bicubic"
     fi = "optical_flow"
 
-    # nvvfx 需要 torch + nvidia-vfx
+    from nvidia_video_enhancer._paths import pkg_file_exists
+
+    if pkg_file_exists("bridge", "dxva_vsr_bridge.dll"):
+        sr = "dxva_vsr"
+
     try:
         import importlib
         importlib.import_module("torch")
@@ -30,10 +40,8 @@ def _detect_best_engines():
     except ImportError:
         pass
 
-    # dxva_vsr 需要编译 bridge DLL
-    from nvidia_video_enhancer._paths import data_file_exists
-    if data_file_exists("bridge", "dxva_vsr_bridge.dll"):
-        sr = "dxva_vsr"
+    if pkg_file_exists("ncnn", "rife", "rife-ncnn-vulkan.exe"):
+        fi = "rife_ncnn"
 
     return sr, fi
 
@@ -43,7 +51,6 @@ def main():
     clean_args = [a for a in args if not a.startswith("--_") and not a.startswith("-psn")]
 
     if not clean_args:
-        print_system_info()
         from nvidia_video_enhancer.gui import main as gui_main
         gui_main()
         return

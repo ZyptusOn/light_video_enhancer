@@ -11,10 +11,23 @@ import sys
 from typing import Optional, Iterator, Tuple
 import numpy as np
 
-from .._paths import get_bundle_dir, get_data_file, is_frozen
+from .._paths import get_bundle_dir, get_pkg_dir, get_data_file, is_frozen
 
 _worker_dll = None
 _ffmpeg_path_patched = False
+
+
+def _get_dll_search_dirs():
+    dirs = []
+    if is_frozen():
+        bundle = get_bundle_dir()
+        dirs.append(os.path.join(bundle, "ffmpeg_dlls"))
+        dirs.append(os.path.join(bundle, "bridge"))
+    else:
+        pkg = get_pkg_dir()
+        dirs.append(os.path.join(pkg, "ffmpeg_dlls"))
+        dirs.append(os.path.join(pkg, "bridge"))
+    return dirs
 
 
 def _setup_paths():
@@ -22,19 +35,16 @@ def _setup_paths():
     if _ffmpeg_path_patched:
         return
 
-    bundle = get_bundle_dir()
-    dll_dir = os.path.join(bundle, "ffmpeg_dlls")
-    bridge_dir = os.path.join(bundle, "bridge")
-
-    if sys.platform == "win32":
-        for d in [dll_dir, bridge_dir]:
-            if os.path.isdir(d) and d not in os.environ.get("PATH", ""):
-                os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
-            if hasattr(os, "add_dll_directory"):
-                try:
-                    os.add_dll_directory(d)
-                except OSError:
-                    pass
+    for d in _get_dll_search_dirs():
+        if os.path.isdir(d):
+            if sys.platform == "win32":
+                if d not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+                if hasattr(os, "add_dll_directory"):
+                    try:
+                        os.add_dll_directory(d)
+                    except OSError:
+                        pass
 
     _ffmpeg_path_patched = True
 

@@ -1,4 +1,7 @@
 import sys
+from ._logging import get_logger
+
+_log = get_logger("main")
 
 
 def main():
@@ -17,16 +20,16 @@ def main():
     try:
         enhancer.run()
     except FileNotFoundError as e:
-        print(f"[错误] {e}", file=sys.stderr)
+        _log.error("%s", e)
         sys.exit(1)
     except ImportError as e:
-        print(f"[依赖缺失] {e}", file=sys.stderr)
+        _log.error("依赖缺失: %s", e)
         sys.exit(1)
     except RuntimeError as e:
-        print(f"[运行错误] {e}", file=sys.stderr)
+        _log.error("%s", e)
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\n[中断] 用户取消", file=sys.stderr)
+        _log.warning("用户取消")
         sys.exit(130)
 
 

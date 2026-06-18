@@ -1,63 +1,271 @@
 # Light Video Enhancer
 
-轻量级视频增强工具。**通过模拟媒体播放器的 D3D11 渲染管线，欺骗 NVIDIA 驱动对任意视频帧应用 RTX Video Super Resolution AI 超分**——这正是 VLC/PotPlayer 等播放器实现实时视频增强的底层原理。
+轻量级视频增强工具 — 超分辨率 + 帧插值 + NVENC 硬件编码，一条龙将低分辨率视频升级为高分辨率高帧率视频。
 
-配合光流法插帧和 NVENC 硬件编码，一条龙将低分辨率视频升级为高分辨率高帧率视频。
+**核心亮点**：通过模拟媒体播放器的 D3D11 渲染管线，欺骗 NVIDIA 驱动对任意视频帧应用 RTX Video Super Resolution AI 超分——这正是 VLC/PotPlayer 等播放器实现实时视频增强的底层原理。
+
+---
+
+## 功能概览
+
+### 超分辨率 (Super Resolution)
+
+| 引擎 | 原理 | 依赖 |
+|------|------|------|
+| **DXVA VSR** | D3D11 VideoProcessorBlt 欺骗法，调用 NVIDIA RTX 视频增强 AI | 仅需 FFmpeg Worker DLL |
+| **NVIDIA NGX VSR** | NVIDIA VFX SDK 官方超分接口 | torch + nvidia-vfx |
+| **Real-CUGAN ncnn** | 动漫优化 AI 超分 (ncnn-vulkan) | 无外部依赖 |
+| **Real-ESRGAN** | 通用 AI 超分 (PyTorch) | torch |
+| **双三次 / Lanczos** | 传统插值算法，零依赖 | 无 |
+
+### 帧插值 (Frame Interpolation)
+
+| 引擎 | 原理 | 依赖 |
+|------|------|------|
+| **RIFE AI (PyTorch)** | 最强 AI 插帧模型 | torch |
+| **RIFE ncnn-vulkan** | RIFE 的 ncnn 实现，零外部依赖 | 无 |
+| **DIS 光流** | SVP 同款稠密逆搜索光流法 | 无 (含于 OpenCV) |
+| **GPU 光流** | CUDA 加速光流 (SVP 风格) | torch |
+| **光流法 (Farneback)** | 经典 Farneback 光流 | 无 |
+| **混合 (Blend)** | 简单帧混合 | 无 |
+
+### 硬件编码
+
+- NVENC H.264 / HEVC / AV1 硬件编码
+- 通过 FFmpeg C API 内嵌调用，无需系统安装 FFmpeg
+- 自动复制源文件音频流
+
+---
 
 ## 工作原理
 
 ```
-解码 (NVDEC) → 光流插帧 (DIS/Farneback) → 超分 (RTX VSR) → 编码 (NVENC)
-                                     ↘ BGR→NV12 → D3D11 VideoProcessorBlt ↗
+解码 (NVDEC) → 插帧 (RIFE / 光流) → 超分 (RTX VSR / ncnn) → 编码 (NVENC)
+                                      ↘ BGR→NV12 → D3D11 VideoProcessorBlt ↗
 ```
 
-核心技巧：构造假的 D3D11 视频渲染管线，把每一帧伪装成"正在播放的视频"，喂给 Video Processor。NVIDIA 驱动在底层拦截 VideoProcessorBlt 调用，自动启用 RTX VSR AI 模型处理——不需要调用任何 NVIDIA 私有 SDK，不依赖 PyTorch/CUDA Toolkit。
+核心技巧 (DXVA VSR)：构造假的 D3D11 视频渲染管线，把每一帧伪装成"正在播放的视频"，喂给 Video Processor。NVIDIA 驱动在底层拦截 VideoProcessorBlt 调用，自动启用 RTX VSR AI 模型处理——**不需要调用任何 NVIDIA 私有 SDK，不依赖 PyTorch/CUDA Toolkit**。
 
-## 功能
+---
 
-- **超分辨率** — NVIDIA RTX VSR (D3D11 欺骗法) / 双三次 / Lanczos，支持任意倍率
-- **帧插值** — DIS 光流 (SVP 风格) / Farneback 光流 / 混合，支持 2x/3x/4x 倍率
-- **硬件编码** — NVENC H.264 / HEVC / AV1
-- **零依赖打包** — 编译为单个 .exe，无需安装 Python、FFmpeg、CUDA
+## 系统要求
 
-推荐场景：720p 30fps → 2K 60fps (2x 超分 + 2x 插帧)，体感流畅。
+| 组件 | 要求 |
+|------|------|
+| 操作系统 | Windows 10/11 64-bit |
+| GPU | **NVIDIA RTX 30/40/50 系列** (推荐) — 完整体验：RTX VSR + NVENC |
+| 驱动 | 最新 NVIDIA Game Ready / Studio 驱动 |
+| 设置 | NVIDIA 控制面板 → 视频 → 启用 RTX 视频增强 |
 
-## 前提条件（实用角度仅推荐 NVIDIA）
+> **非 NVIDIA GPU**：代码层面兼容 Intel Arc VSR 和 AMD D3D11 VP，但无硬件编码（回退到软件编码），可用的超分/插帧引擎也受限。推荐使用 ncnn 系列引擎。
 
-- Windows 10/11
-- **NVIDIA RTX 30/40/50 系列显卡** — 同时具备 RTX VSR AI 超分 + NVENC 硬件编码，完整体验
-- NVIDIA 控制面板 → 视频 → 启用 RTX 视频增强
-
-> 代码层面兼容 Intel Arc VSR 和 AMD D3D11 VP，但无硬件编码（回退到软件），实用价值有限。
+---
 
 ## 快速开始
 
-### 方式一：直接使用 .exe (推荐)
+### 方式一：直接使用 .exe（推荐）
 
-从 release 中下载 `.exe` 文件，双击启动 GUI，或拖拽视频文件到 .exe 上自动处理。
+从 [Releases](https://github.com/ZyptusOn/light_video_enhancer/releases) 下载 `视频增强.exe`：
+
+- **双击启动 GUI**，选择输入/输出文件，选择引擎，点击处理
+- **拖拽视频文件到 .exe 上**，自动使用最佳引擎处理
+- **命令行模式**：`视频增强.exe input.mp4 -o output.mp4 -s 2 --fi-engine rife_ncnn`
+
+> .exe 已内置 ncnn 引擎 (RIFE / Real-CUGAN) 和 FFmpeg Worker DLL，无需安装 Python。
 
 ### 方式二：从源码运行
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/ZyptusOn/light_video_enhancer.git
+cd light_video_enhancer
+pip install -r nvidia_video_enhancer/requirements.txt
+
 # GUI 模式
 python launcher.py
+
 # 命令行模式
-python -m nvidia_video_enhancer input.mp4 output.mp4
+python -m nvidia_video_enhancer input.mp4 -o output.mp4 -s 2 --fi-engine rife_ncnn
 ```
 
-### 编译 .exe
+### 命令行参数
+
+```
+nve input.mp4 -o output.mp4 [选项]
+
+超分:
+  -s, --scale FLOAT       超分倍率 (默认 2.0)
+  -W, --width INT         输出宽度 (覆盖 --scale)
+  -H, --height INT        输出高度 (覆盖 --scale)
+  --sr-engine ENGINE      超分引擎: dxva_vsr, nvvfx, esrgan, realcugan, bicubic, lanczos, none
+
+插帧:
+  --fi-engine ENGINE      插帧引擎: dis, rife, rife_ncnn, torch_flow, optical_flow, blend, none
+  --fi-multiplier INT     插帧倍率 (2/3/4, 默认 2)
+  --fi-quality QUALITY    光流质量: ultra(极速), fast(快), balanced(均衡), quality(最佳)
+  --sr-first              先超分再插帧 (默认先插帧再超分)
+
+编码:
+  --codec CODEC          编码器: h264_nvenc, hevc_nvenc, av1_nvenc
+  --preset PRESET         NVENC preset: p1~p7 (默认 p7)
+  --crf INT               质量 15~35 (默认 23, 越小越好)
+  --container CONTAINER   容器: mp4, mkv, mov (默认 mp4)
+  --fps FLOAT             覆盖输出帧率
+
+其他:
+  --start FLOAT           起始时间 (秒)
+  --duration FLOAT        持续时长 (秒)
+  --device {cuda,cpu}     计算设备 (默认 cuda)
+```
+
+**常用示例**：
 
 ```bash
-# 1. 编译 FFmpeg Worker DLL (MSYS2 UCRT64)
-cd nvidia_video_enhancer/ffmpeg_bridge && ./build_worker.sh
+# DXVA VSR 超分 2x + RIFE ncnn 插帧 2x (零依赖组合)
+python -m nvidia_video_enhancer input.mp4 -o output.mp4 --sr-engine dxva_vsr --fi-engine rife_ncnn
 
-# 2. 编译 D3D11 VSR Bridge DLL
-cd nvidia_video_enhancer/bridge && ./build.sh
+# 仅超分 (双三次 2x)
+python -m nvidia_video_enhancer input.mp4 -o output.mp4 --sr-engine bicubic --fi-engine none
 
-# 3. 打包 .exe
+# 仅插帧 (DIS 光流 2x → 60fps)
+python -m nvidia_video_enhancer input.mp4 -o output.mp4 --sr-engine none --fi-engine dis
+
+# Real-CUGAN ncnn 动漫超分 2x
+python -m nvidia_video_enhancer input.mp4 -o output.mp4 --sr-engine realcugan --fi-engine none
+```
+
+---
+
+## 编译
+
+### 1. 编译 FFmpeg（从源码）
+
+在 **MSYS2 UCRT64** 终端中运行:
+
+```bash
+cd ffmpeg_build
+./build_ffmpeg.sh
+```
+
+> 需要: MSYS2 + MinGW-w64 UCRT64 gcc + ffnvcodec headers。  
+> 产出: `ffmpeg/build/bin/*.dll` (avcodec, avformat, avutil, swscale 等)。
+
+### 2. 编译 FFmpeg Worker DLL
+
+```bash
+cd nvidia_video_enhancer/ffmpeg_bridge
+./build_worker.sh
+```
+
+> 产出: `ffmpeg_worker.dll`
+
+### 3. 编译 D3D11 VSR Bridge DLL
+
+```bash
+cd nvidia_video_enhancer/bridge
+./build.sh
+```
+
+> 产出: `dxva_vsr_bridge.dll`
+
+### 4. 打包 .exe
+
+```bash
 python nvidia_video_enhancer/build_exe.py
 ```
+
+> 产出: `视频增强.exe`
+
+---
+
+## 目录结构
+
+```
+light_video_enhancer/
+├── launcher.py                    # PyInstaller 打包入口 + GUI/拖拽入口
+├── ffmpeg_build/
+│   └── build_ffmpeg.sh            # FFmpeg 源码编译脚本
+├── nvidia_video_enhancer/
+│   ├── __init__.py                # 包描述
+│   ├── __main__.py                # CLI 入口 (python -m nvidia_video_enhancer)
+│   ├── _env.py                    # 系统 Python/torch 环境检测
+│   ├── _logging.py                # 统一日志模块
+│   ├── _paths.py                  # 路径工具 (frozen/源码模式)
+│   ├── pipeline.py                # 视频处理流水线
+│   ├── config.py                  # 配置数据类
+│   ├── cli.py                     # 命令行参数解析
+│   ├── gui.py                     # Tkinter 图形界面
+│   ├── utils.py                   # 引擎可用性检测
+│   ├── build_exe.py               # PyInstaller 打包脚本
+│   ├── setup.py                   # pip 安装
+│   ├── requirements.txt           # Python 依赖
+│   │
+│   ├── ffmpeg_bridge/             # FFmpeg C API 包装器
+│   │   ├── ffmpeg_worker.c        # C 源码 (解码/编码)
+│   │   ├── ffmpeg_worker.dll      # 编译产物
+│   │   ├── build_worker.sh        # 编译脚本
+│   │   ├── worker.py              # Python ctypes 绑定
+│   │   └── __init__.py
+│   │
+│   ├── ffmpeg_dlls/               # FFmpeg 共享库 (LGPL)
+│   │   ├── avcodec-62.dll, avformat-62.dll, avutil-60.dll, swscale-9.dll
+│   │   └── ... (运行时依赖库)
+│   │
+│   ├── bridge/                    # D3D11 VSR Bridge
+│   │   ├── dxva_vsr_bridge.cpp    # C++ 源码
+│   │   ├── dxva_vsr_bridge.dll    # 编译产物
+│   │   └── build.sh
+│   │
+│   ├── sr/                        # 超分引擎
+│   │   ├── base.py                # 抽象基类
+│   │   ├── dxva_vsr.py            # DXVA VSR (D3D11 欺骗法)
+│   │   ├── nvvfx_sr.py            # NVIDIA NGX VSR
+│   │   ├── _nvvfx_infer.py        # nvvfx 子进程推理
+│   │   ├── realcugan_ncnn.py      # Real-CUGAN ncnn
+│   │   ├── realesrgan_ncnn.py     # Real-ESRGAN (PyTorch)
+│   │   └── fallback.py            # 双三次/Lanczos
+│   │
+│   ├── fi/                        # 插帧引擎
+│   │   ├── base.py                # 抽象基类
+│   │   ├── rife.py                # RIFE AI (PyTorch)
+│   │   ├── rife_ncnn.py           # RIFE ncnn-vulkan
+│   │   ├── dis_flow.py            # DIS 光流
+│   │   ├── torch_flow.py          # CUDA 光流
+│   │   ├── optical_flow.py        # Farneback 光流
+│   │   ├── blend.py               # 混合插帧
+│   │   ├── _rife_infer.py         # RIFE PyTorch 推理
+│   │   ├── _rife_model.py         # RIFE 模型定义
+│   │   ├── warplayer.py           # 帧变形工具
+│   │   └── flownet.pkl            # RIFE 模型权重
+│   │
+│   └── ncnn/                      # ncnn 引擎 + 模型文件
+│       ├── rife/                   # RIFE ncnn-vulkan
+│       ├── realcugan/              # Real-CUGAN ncnn-vulkan
+│       └── realesrgan/             # Real-ESRGAN ncnn-vulkan
+```
+
+---
+
+## PyTorch 环境配置（可选）
+
+以下引擎需要 PyTorch + CUDA **外部 Python 环境**（.exe 不打包 torch）：
+
+| 引擎 | torch 用途 |
+|------|-----------|
+| RIFE AI (PyTorch) | AI 插帧推理 |
+| GPU 光流 (SVP 风格) | CUDA 加速光流计算 |
+| NVIDIA NGX VSR | NVIDIA VFX SDK 超分 |
+| Real-ESRGAN | AI 超分推理 |
+
+安装方式（通过 conda）：
+
+```bash
+conda install pytorch torchvision pytorch-cuda=12.8 -c pytorch -c nvidia
+pip install nvidia-vfx   # 可选: NVIDIA NGX VSR
+```
+
+程序启动时会**自动扫描系统上的 Python 环境**，优先选择带 torch+CUDA 的环境。无需设置环境变量。
+
+---
 
 ## FFmpeg 许可声明
 
@@ -67,9 +275,13 @@ python nvidia_video_enhancer/build_exe.py
 
 FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
+---
+
 ## AI 生成声明
 
-本项目所有代码由 **DeepSeek V4 Pro + TRAE Work** AI 辅助生成。
+本项目所有代码由 **TRAE 工作台 (MiniMax-M2.7)** AI 辅助生成。
+
+---
 
 ## 许可
 

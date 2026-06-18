@@ -23,6 +23,12 @@ DATA_FILES = [
     ("nvidia_video_enhancer/ffmpeg_dlls", "ffmpeg_dlls"),
     ("nvidia_video_enhancer/ffmpeg_bridge/ffmpeg_worker.dll", "ffmpeg_bridge"),
     ("nvidia_video_enhancer/bridge/dxva_vsr_bridge.dll", "bridge"),
+    ("nvidia_video_enhancer/fi/_rife_infer.py", "nvidia_video_enhancer/fi"),
+    ("nvidia_video_enhancer/fi/_rife_model.py", "nvidia_video_enhancer/fi"),
+    ("nvidia_video_enhancer/fi/warplayer.py", "nvidia_video_enhancer/fi"),
+    ("nvidia_video_enhancer/fi/flownet.pkl", "nvidia_video_enhancer/fi"),
+    ("nvidia_video_enhancer/sr/_nvvfx_infer.py", "nvidia_video_enhancer/sr"),
+    ("nvidia_video_enhancer/ncnn", "nvidia_video_enhancer/ncnn"),
 ]
 
 # 巨大的库, 不打包 (运行时按需 import)
@@ -37,6 +43,7 @@ EXCLUDE_MODULES = [
     "tensorboard", "triton",
     "numba",
     "sympy", "networkx",
+    "charset_normalizer.md__mypyc",
 ]
 
 
@@ -55,10 +62,15 @@ def main():
         if os.path.isfile(full):
             add_data += ["--add-data", f"{full}{os.pathsep}{dst}"]
         elif os.path.isdir(full):
-            for f in os.listdir(full):
-                fp = os.path.join(full, f)
-                if os.path.isfile(fp):
-                    add_data += ["--add-data", f"{fp}{os.pathsep}{dst}"]
+            for root, _, files in os.walk(full):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    rel = os.path.relpath(os.path.dirname(fp), full)
+                    if rel == ".":
+                        target = dst
+                    else:
+                        target = os.path.join(dst, rel)
+                    add_data += ["--add-data", f"{fp}{os.pathsep}{target}"]
 
     for d in ["build", "dist"]:
         path = os.path.join(PROJECT_DIR, d)
@@ -91,6 +103,7 @@ def main():
         # 项目模块
         "--hidden-import", "nvidia_video_enhancer",
         "--hidden-import", "nvidia_video_enhancer._paths",
+        "--hidden-import", "nvidia_video_enhancer._env",
         "--hidden-import", "nvidia_video_enhancer.pipeline",
         "--hidden-import", "nvidia_video_enhancer.config",
         "--hidden-import", "nvidia_video_enhancer.cli",
@@ -105,6 +118,10 @@ def main():
         "--hidden-import", "nvidia_video_enhancer.fi.blend",
         "--hidden-import", "nvidia_video_enhancer.fi.optical_flow",
         "--hidden-import", "nvidia_video_enhancer.fi.dis_flow",
+        "--hidden-import", "nvidia_video_enhancer.fi.rife_ncnn",
+        "--hidden-import", "nvidia_video_enhancer.sr.realcugan_ncnn",
+        "--hidden-import", "nvidia_video_enhancer.sr.realesrgan_ncnn",
+        "--hidden-import", "nvidia_video_enhancer._logging",
         "--hidden-import", "nvidia_video_enhancer.ffmpeg_bridge",
         "--hidden-import", "nvidia_video_enhancer.ffmpeg_bridge.worker",
     ] + exclude_flags + add_data + [LAUNCHER]

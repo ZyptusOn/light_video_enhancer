@@ -4,17 +4,37 @@
 import os
 import sys
 import threading
+import logging
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 
 from .utils import check_engine_availability
 from .pipeline import VideoEnhancer
 from .config import ProcessConfig, EncodeConfig
+from ._logging import get_logger, set_gui_handler
+
+_log = get_logger(__name__)
 
 
 def run_in_thread(fn, *args):
     t = threading.Thread(target=fn, args=args, daemon=True)
     t.start()
+
+
+class _GuiLogHandler(logging.Handler):
+    """将 logging 消息发送到 GUI 文本框。"""
+
+    def __init__(self, gui_callback):
+        super().__init__()
+        self._callback = gui_callback
+        self.setFormatter(logging.Formatter("[%(levelname)-7s] %(message)s"))
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self._callback(msg)
+        except Exception:
+            pass
 
 
 _VSR_MAX_W = 4096
@@ -30,10 +50,22 @@ class NVEGUI(tk.Tk):
         self.configure(padx=12, pady=12)
 
         self._running = False
-        self._caps = check_engine_availability()
+        self._torch_python = None
+        self._torch_scanned = False
+
+        # 阶段1: 轻量检测 (worker DLL / VSR bridge / ncnn 文件 — 毫秒级)
+        caps_fast = check_engine_availability()
+        caps_fast["torch_cuda"] = False
+        caps_fast["nvvfx"] = False
+        self._caps = caps_fast
+
         self._last_input = ""
+        self._probe_cache = {}
         self._build_ui()
         self._update_engine_state()
+
+        # 阶段2: 后台检测 torch + nvvfx (可能需要扫描系统 Python — 秒级)
+        run_in_thread(self._detect_torch_python)
 
     def _build_ui(self):
         f1 = ttk.Labelframe(self, text="输入 / 输出", padding=8)
@@ -91,6 +123,10 @@ class NVEGUI(tk.Tk):
                      state="readonly", width=10).grid(
             row=1, column=3, padx=4, pady=(4, 0), sticky="w")
 
+        self._sr_first_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(f3, text="先超分再插帧", variable=self._sr_first_var).grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
         f4 = ttk.Labelframe(self, text="编码", padding=8)
         f4.pack(fill=tk.X, pady=(0, 8))
 
@@ -129,22 +165,36 @@ class NVEGUI(tk.Tk):
 
     def _update_engine_state(self):
         caps = self._caps
+        torch_ok = caps["torch_cuda"]
+        scanning = not self._torch_scanned
 
         self._sr_available = {}
         sr_items = []
         sr_sel = None
 
-        for key in ("nvvfx", "dxva_vsr", "bicubic", "lanczos"):
+        for key in ("nvvfx", "dxva_vsr", "esrgan", "realcugan", "bicubic", "lanczos", "none"):
             if key == "nvvfx":
-                ok = caps["worker"] and caps["torch_cuda"] and caps["nvvfx"]
-                label = "NVIDIA VFX SDK"
+                if caps["worker"] and torch_ok and caps["nvvfx"]:
+                    ok = True; label = "NVIDIA NGX VSR"
+                elif scanning and caps["worker"]:
+                    ok = True; label = "NVIDIA NGX VSR (检测中...)"
+                else:
+                    ok = False; label = ""
             elif key == "dxva_vsr":
                 ok = caps["worker"] and caps["vsr_dll"]
                 label = "DXVA VSR (NVIDIA RTX 视频增强)"
+            elif key == "esrgan":
+                ok = torch_ok
+                label = "Real-ESRGAN (PyTorch)" if torch_ok else ("Real-ESRGAN (PyTorch) (检测中...)" if scanning else "")
+            elif key == "realcugan":
+                ok = self._ncnn_sr_available()
+                label = "Real-CUGAN ncnn (AI)"
             elif key == "bicubic":
                 ok = True; label = "双三次"
-            else:
+            elif key == "lanczos":
                 ok = True; label = "Lanczos"
+            else:
+                ok = True; label = "不超分"
             if ok:
                 self._sr_available[label] = key
                 sr_items.append(label)
@@ -160,13 +210,24 @@ class NVEGUI(tk.Tk):
         fi_items = []
         fi_sel = None
 
-        for key in ("dis", "torch_flow", "optical_flow", "rife", "blend", "none"):
+        for key in ("dis", "torch_flow", "optical_flow", "rife", "rife_ncnn", "blend", "none"):
             if key == "rife":
-                ok = caps["torch_cuda"]
-                label = "RIFE AI"
+                if torch_ok:
+                    ok = True; label = "RIFE AI (PyTorch)"
+                elif scanning:
+                    ok = True; label = "RIFE AI (PyTorch) (检测中...)"
+                else:
+                    ok = False; label = ""
+            elif key == "rife_ncnn":
+                ok = self._ncnn_fi_available()
+                label = "RIFE ncnn-vulkan"
             elif key == "torch_flow":
-                ok = caps["torch_cuda"]
-                label = "GPU 光流 (SVP 风格)"
+                if torch_ok:
+                    ok = True; label = "GPU 光流 (SVP 风格)"
+                elif scanning:
+                    ok = True; label = "GPU 光流 (SVP 风格) (检测中...)"
+                else:
+                    ok = False; label = ""
             elif key == "dis":
                 try:
                     import cv2; cv2.DISOpticalFlow_create
@@ -192,10 +253,33 @@ class NVEGUI(tk.Tk):
     def _on_sr_changed(self, event=None):
         self._check_sr_limit()
 
+    def _ncnn_sr_available(self):
+        from ._paths import pkg_file_exists
+        return pkg_file_exists("ncnn", "realcugan", "realcugan-ncnn-vulkan.exe")
+
+    def _ncnn_fi_available(self):
+        from ._paths import pkg_file_exists
+        return pkg_file_exists("ncnn", "rife", "rife-ncnn-vulkan.exe")
+
+    def _detect_torch_python(self):
+        try:
+            from ._env import get_torch_python
+            result = get_torch_python()
+            if result:
+                self._torch_python = result
+            self._caps = check_engine_availability(self._torch_python)
+        except Exception:
+            pass
+        finally:
+            def _done():
+                self._update_engine_state()
+                self._torch_scanned = True
+            self.after(0, _done)
+
     def _check_sr_limit(self):
         label = self._sr_var.get()
         key = self._sr_available.get(label, "")
-        if key != "dxva_vsr":
+        if key not in ("dxva_vsr", "none"):
             self._sr_warning_var.set("")
             return
 
@@ -204,8 +288,13 @@ class NVEGUI(tk.Tk):
         except (ValueError, tk.TclError):
             scale = 2.0
 
-        src_w = max(self._probe_input_width(), 1920)
-        src_h = max(self._probe_input_height(), 1080)
+        if key == "none":
+            self._sr_warning_var.set("")
+            return
+
+        info = self._probe_input_info()
+        src_w = max(info.get("width", 0), 1920)
+        src_h = max(info.get("height", 0), 1080)
         dst_w = int(src_w * scale)
         dst_h = int(src_h * scale)
 
@@ -215,29 +304,21 @@ class NVEGUI(tk.Tk):
         else:
             self._sr_warning_var.set("")
 
-    def _probe_input_width(self):
+    def _probe_input_info(self) -> dict:
         path = self._input_var.get().strip()
         if not path or not os.path.isfile(path):
-            return 0
+            return {"width": 0, "height": 0}
+        if path in self._probe_cache:
+            return self._probe_cache[path]
         try:
             from .ffmpeg_bridge import FFmpegVideoDecoder
             dec = FFmpegVideoDecoder(path, use_nvdec=False)
             info = dec.probe()
-            return info.get("width", 0)
+            result = {"width": info.get("width", 0), "height": info.get("height", 0)}
         except Exception:
-            return 0
-
-    def _probe_input_height(self):
-        path = self._input_var.get().strip()
-        if not path or not os.path.isfile(path):
-            return 0
-        try:
-            from .ffmpeg_bridge import FFmpegVideoDecoder
-            dec = FFmpegVideoDecoder(path, use_nvdec=False)
-            info = dec.probe()
-            return info.get("height", 0)
-        except Exception:
-            return 0
+            result = {"width": 0, "height": 0}
+        self._probe_cache[path] = result
+        return result
 
     def _browse_input(self):
         path = filedialog.askopenfilename(
@@ -251,6 +332,7 @@ class NVEGUI(tk.Tk):
         path = self._input_var.get().strip()
         if path and path != self._last_input:
             self._last_input = path
+            self._probe_cache.pop(path, None)
             self._check_sr_limit()
 
     def _browse_output(self):
@@ -265,14 +347,19 @@ class NVEGUI(tk.Tk):
         dirname = os.path.dirname(os.path.abspath(input_path))
         base, _ = os.path.splitext(os.path.basename(input_path))
         tags = []
-        s = self._scale_var.get()
-        if s > 1.0:
-            tags.append(f"x{s:.1f}".rstrip('0').rstrip('.'))
+        sr_key = self._sr_available.get(self._sr_var.get(), "none")
+        if sr_key != "none":
+            s = self._scale_var.get()
+            if s > 1.0:
+                tags.append(f"x{s:.1f}".rstrip('0').rstrip('.'))
         fi_key = self._fi_available.get(self._fi_var.get(), "none")
         if fi_key != "none":
             tags.append(f"f{self._fi_mult_var.get()}")
         suffix = "_" + "_".join(tags) if tags else ""
-        return os.path.join(dirname, f"{base}{suffix}.{self._container_var.get()}")
+        container = self._container_var.get()
+        # 确保容器后缀不含非法字符
+        safe_container = "".join(c for c in container if c.isalnum() or c in "._-")
+        return os.path.join(dirname, f"{base}{suffix}.{safe_container}")
 
     def _log_msg(self, msg: str):
         self._log.insert(tk.END, msg + "\n")
@@ -287,16 +374,31 @@ class NVEGUI(tk.Tk):
         sr = self._sr_available.get(sr_label, "bicubic")
         fi = self._fi_available.get(fi_label, "none")
 
+        if sr == "none" and fi == "none":
+            messagebox.showerror("错误", "未选择任何可用的引擎！")
+            return
+
         inp = self._input_var.get().strip()
         out = self._output_var.get().strip()
         if not inp:
             messagebox.showerror("错误", "请选择输入文件")
             return
 
+        if sr == "nvvfx" or fi in ("rife", "torch_flow"):
+            if not self._caps.get("torch_cuda"):
+                messagebox.showerror(
+                    "PyTorch 不可用",
+                    "所选引擎需要 PyTorch + CUDA 环境。\n\n"
+                    "请通过 conda 安装:\n"
+                    "  conda install pytorch torchvision pytorch-cuda=12.8 -c pytorch -c nvidia\n\n"
+                    "或选择 ncnn 版本引擎。")
+                return
+
         if sr == "dxva_vsr":
             scale = self._scale_var.get()
-            sw = self._probe_input_width()
-            sh = self._probe_input_height()
+            info = self._probe_input_info()
+            sw = info.get("width", 0)
+            sh = info.get("height", 0)
             if sw and sh:
                 dw = int(sw * scale)
                 dh = int(sh * scale)
@@ -338,22 +440,19 @@ class NVEGUI(tk.Tk):
                 fi_quality=self._fi_quality_var.get(),
                 encode=encode,
                 device="cuda",
+                torch_python=self._torch_python,
+                sr_first=self._sr_first_var.get(),
             )
 
             enhancer = VideoEnhancer(config)
-            import builtins
-            _orig_print = builtins.print
 
-            def gui_print(*args, **kwargs):
-                msg = " ".join(str(a) for a in args)
-                self.after(0, self._log_msg, msg)
-                _orig_print(msg)
-
-            builtins.print = gui_print
+            gui_cb = lambda msg: self.after(0, self._log_msg, msg)
+            handler = _GuiLogHandler(gui_cb)
+            set_gui_handler(handler)
             try:
                 enhancer.run()
             finally:
-                builtins.print = _orig_print
+                set_gui_handler(None)
 
             self.after(0, self._done, True, "")
         except Exception as e:
@@ -375,17 +474,23 @@ def main():
 
     app = NVEGUI()
 
-    caps = app._caps
-    _print("[信息] 引擎检测:")
-    _print(f"  FFmpeg Worker: {'✓' if caps['worker'] else '✗'}")
-    _print(f"  D3D11 Bridge:  {'✓' if caps['vsr_dll'] else '✗'}")
-    _print(f"  PyTorch CUDA:  {'✓' if caps['torch_cuda'] else '✗'}")
-    _print(f"  nvidia-vfx:    {'✓' if caps['nvvfx'] else '✗'}")
-    av_sr = app._sr_available
-    av_fi = app._fi_available
-    _print(f"  可用超分引擎: {', '.join(list(av_sr.keys())[:3])}")
-    _print(f"  可用插帧引擎: {', '.join(list(av_fi.keys())[:4])}")
+    def _check_detection_done():
+        if not app._torch_scanned:
+            app.after(100, _check_detection_done)
+        else:
+            caps = app._caps
+            _print("[信息] 引擎检测:")
+            _print(f"  FFmpeg Worker: {'✓' if caps['worker'] else '✗'}")
+            _print(f"  D3D11 Bridge:  {'✓' if caps['vsr_dll'] else '✗'}")
+            _print(f"  nvidia-vfx:    {'✓' if caps['nvvfx'] else '✗'}")
+            _print(f"  ncnn RIFE:     {'✓' if caps.get('ncnn_rife', False) else '✗'}")
+            _print(f"  ncnn Real-CUG: {'✓' if caps.get('ncnn_cugan', False) else '✗'}")
+            av_sr = [k for k in app._sr_available.keys() if "不超分" not in k]
+            av_fi = [k for k in app._fi_available.keys() if "不插帧" not in k]
+            _print(f"  可用超分引擎: {', '.join(av_sr)}")
+            _print(f"  可用插帧引擎: {', '.join(av_fi)}")
 
+    app.after(50, _check_detection_done)
     app.mainloop()
 
 

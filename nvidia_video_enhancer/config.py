@@ -27,3 +27,5 @@ class ProcessConfig:
     start_time: Optional[float] = None
     duration: Optional[float] = None
     device: str = "cuda"
+    torch_python: Optional[str] = None
+    sr_first: bool = False
