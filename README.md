@@ -279,7 +279,7 @@ FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
 ## AI 生成声明
 
-本项目所有代码由 **TRAE 工作台 (MiniMax-M2.7)** AI 辅助生成。
+本项目所有代码由 **TRAE 工作台 (DeepSeek V4 Pro)** AI 辅助生成。
 
 ---
 
