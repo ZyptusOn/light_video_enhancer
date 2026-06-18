@@ -283,7 +283,32 @@ FFmpeg 源码：<https://git.ffmpeg.org/ffmpeg.git>
 
 ---
 
+## 致谢
+
+本项目使用或参考了以下开源项目：
+
+| 项目 | 用途 | 许可 |
+|------|------|------|
+| [FFmpeg](https://ffmpeg.org/) | 多媒体解码/编码/muxer | LGPL v2.1 |
+| [ffnvcodec](https://github.com/FFmpeg/nv-codec-headers) | NVENC/NVDEC 头文件 | MIT |
+| [ncnn](https://github.com/Tencent/ncnn) | 高性能神经网络推理框架 | BSD-3-Clause |
+| [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan) | RIFE ncnn-vulkan 移植 | MIT |
+| [realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) | Real-CUGAN ncnn-vulkan 移植 | MIT |
+| [realesrgan-ncnn-vulkan](https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan) | Real-ESRGAN ncnn-vulkan 移植 | MIT |
+| [RIFE](https://github.com/hzwer/ECCV2022-RIFE) | AI 插帧模型架构 | MIT |
+| [Practical-RIFE](https://github.com/hzwer/Practical-RIFE) | RIFE 实用实现 | MIT |
+| [Real-CUGAN](https://github.com/bilibili/ailab) | 动漫超分模型 (bilibili) | MIT |
+| [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) | 通用超分模型 | BSD-3-Clause |
+| [NVIDIA Video Effects SDK](https://github.com/NVIDIA/DLSS-Native) | NGX VSR 超分 | NVIDIA EULA |
+| [SVP](https://www.svp-team.com/) | 光流插帧思路参考 | — |
+| [VLC](https://github.com/videolan/vlc) | D3D11 渲染管线参考 | LGPL v2.1 |
+| [OpenCV](https://github.com/opencv/opencv) | 图像处理 / 光流算法 | Apache 2.0 |
+| [PyTorch](https://github.com/pytorch/pytorch) | AI 推理框架 | BSD-3-Clause |
+
+---
+
 ## 许可
 
 本项目 Python/C++ 源码以 [MIT License](LICENSE) 许可分发。  
-捆绑的 FFmpeg DLL 以 LGPL v2.1 许可分发，版权归 FFmpeg 项目所有。
+捆绑的 FFmpeg DLL 以 LGPL v2.1 许可分发，版权归 FFmpeg 项目所有。  
+`ncnn/` 目录下各子项目版权归原作者所有，遵循其各自的许可。
