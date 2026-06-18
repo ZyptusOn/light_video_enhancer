@@ -12,7 +12,7 @@
 
 | 引擎 | 原理 | 依赖 |
 |------|------|------|
-| **DXVA VSR** | D3D11 VideoProcessorBlt 欺骗法，调用 NVIDIA RTX 视频增强 AI | 仅需 FFmpeg Worker DLL |
+| **DXVA VSR** | D3D11 VideoProcessorBlt 欺骗法，调用 NVIDIA RTX 视频增强 AI | FFmpeg Worker DLL 和 NVIDIA 显卡驱动 531.18 以后版本 |
 | **NVIDIA NGX VSR** | NVIDIA VFX SDK 官方超分接口 | torch + nvidia-vfx |
 | **Real-CUGAN ncnn** | 动漫优化 AI 超分 (ncnn-vulkan) | 无外部依赖 |
 | **Real-ESRGAN** | 通用 AI 超分 (PyTorch) | torch |
