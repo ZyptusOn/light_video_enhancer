@@ -273,11 +273,60 @@ void* nve_encoder_open(const char *path, int w, int h, double fps,
     if (avcodec_open2(s->codec_ctx, codec, &opts) < 0) {
         av_dict_free(&opts);
         avcodec_free_context(&s->codec_ctx);
-        avformat_free_context(s->fmt_ctx);
-        free(s);
-        return NULL;
+        s->codec_ctx = NULL;
+
+        const char *fallback_name = NULL;
+        if (strstr(codec_name, "nvenc") && !strstr(codec_name, "h264"))
+            fallback_name = "h264_nvenc";
+        else if (!strstr(codec_name, "nvenc") && !strstr(codec_name, "libx264"))
+            fallback_name = "libx264";
+
+        if (fallback_name) {
+            fprintf(stderr, "[Encoder] %s 不可用，回退到 %s\n", codec_name, fallback_name);
+            codec = avcodec_find_encoder_by_name(fallback_name);
+        }
+
+        if (!codec || !fallback_name) {
+            avformat_free_context(s->fmt_ctx);
+            free(s);
+            return NULL;
+        }
+
+        s->codec_ctx = avcodec_alloc_context3(codec);
+        s->codec_ctx->width    = s->enc_w;
+        s->codec_ctx->height   = s->enc_h;
+        {
+            AVRational fr = av_d2q(fps, 1000000);
+            s->codec_ctx->time_base = av_inv_q(fr);
+            s->codec_ctx->framerate = fr;
+        }
+        s->codec_ctx->gop_size = (int)(fps * 2.0 + 0.5);
+        s->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+
+        AVDictionary *fb_opts = NULL;
+        if (preset)
+            av_dict_set(&fb_opts, "preset", preset, 0);
+        av_dict_set(&fb_opts, "pix_fmt", "yuv420p", 0);
+        av_dict_set(&fb_opts, "cq", crf_str, 0);
+        av_dict_set(&fb_opts, "rc", "vbr", 0);
+        av_dict_set(&fb_opts, "async_depth", "4", 0);
+        if (strstr(fallback_name, "h264")) {
+            av_dict_set(&fb_opts, "tune", "ll", 0);
+            av_dict_set(&fb_opts, "profile", "high", 0);
+            av_dict_set(&fb_opts, "no-scenecut", "1", 0);
+        }
+
+        if (avcodec_open2(s->codec_ctx, codec, &fb_opts) < 0) {
+            av_dict_free(&fb_opts);
+            avcodec_free_context(&s->codec_ctx);
+            avformat_free_context(s->fmt_ctx);
+            free(s);
+            return NULL;
+        }
+        av_dict_free(&fb_opts);
+    } else {
+        av_dict_free(&opts);
     }
-    av_dict_free(&opts);
 
     avcodec_parameters_from_context(s->stream->codecpar, s->codec_ctx);
     s->stream->time_base = s->codec_ctx->time_base;
