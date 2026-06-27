@@ -3,11 +3,17 @@ Real-CUGAN ncnn-vulkan 超分引擎。
 
 通过调用 realcugan-ncnn-vulkan.exe 实现。
 模型: models-se (UpSample 专用，2×/3×/4×)
+
+性能注意:
+  持久 tmpdir + 固定文件名，避免每帧创建/删除临时目录的开销。
+  subprocess 进程启动开销（~50ms/次）无法消除（ncnn CLI 为单次调用模式），
+  如需更高性能请使用 DXVA VSR 或 PyTorch 超分引擎。
 """
 
 import os
 import subprocess
 import tempfile
+import shutil
 import numpy as np
 import cv2
 
@@ -56,6 +62,9 @@ class RealCUGANEngine(SuperResolutionEngine):
         self._models_dir = ""
         self._gpu_id = 0
         self._scale = 2
+        self._tmpdir = ""
+        self._pi = ""
+        self._po = ""
 
     @property
     def name(self) -> str:
@@ -85,50 +94,42 @@ class RealCUGANEngine(SuperResolutionEngine):
             self._scale = 2
             model_name = "up2x-conservative"
 
+        self._tmpdir = tempfile.mkdtemp(prefix="cugan_")
+        self._pi = os.path.join(self._tmpdir, "in.png")
+        self._po = os.path.join(self._tmpdir, "out.png")
+
         _log.info("Real-CUGAN 就绪 (%dx%d→%dx%d, %dx, models-se)",
                   src_width, src_height, dst_width, dst_height,
                   self._scale)
 
     def process(self, frame: np.ndarray) -> np.ndarray:
-        tmpdir = tempfile.mkdtemp(prefix="cugan_")
-        try:
-            pi = os.path.join(tmpdir, "in.png")
-            po = os.path.join(tmpdir, "out.png")
-            cv2.imwrite(pi, frame)
+        cv2.imwrite(self._pi, frame)
 
-            exe_dir = os.path.dirname(self._exe)
-            cmd = [
-                self._exe, "-i", pi, "-o", po,
-                "-s", str(self._scale),
-                "-m", "models-se",
-                "-g", str(self._gpu_id),
-            ]
-            result = subprocess.run(
-                cmd, capture_output=True,
-                cwd=exe_dir, timeout=120,
-            )
-            if result.returncode != 0:
-                stderr = result.stderr.decode(errors="replace") if result.stderr else ""
-                raise RuntimeError(f"realcugan-ncnn-vulkan 超分失败: {stderr}")
+        exe_dir = os.path.dirname(self._exe)
+        cmd = [
+            self._exe, "-i", self._pi, "-o", self._po,
+            "-s", str(self._scale),
+            "-m", "models-se",
+            "-g", str(self._gpu_id),
+        ]
+        result = subprocess.run(
+            cmd, capture_output=True,
+            cwd=exe_dir, timeout=120,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.decode(errors="replace") if result.stderr else ""
+            raise RuntimeError(f"realcugan-ncnn-vulkan 超分失败: {stderr}")
 
-            out = cv2.imread(po)
-            if out is None:
-                raise RuntimeError(f"realcugan-ncnn-vulkan 输出无法读取: {po}")
+        out = cv2.imread(self._po)
+        if out is None:
+            raise RuntimeError(f"realcugan-ncnn-vulkan 输出无法读取: {self._po}")
 
-            if out.shape[1] != self._dst_w or out.shape[0] != self._dst_h:
-                out = cv2.resize(out, (self._dst_w, self._dst_h),
-                                 interpolation=cv2.INTER_LANCZOS4)
-            return out
-        finally:
-            self._cleanup(tmpdir)
+        if out.shape[1] != self._dst_w or out.shape[0] != self._dst_h:
+            out = cv2.resize(out, (self._dst_w, self._dst_h),
+                             interpolation=cv2.INTER_LANCZOS4)
+        return out
 
     def release(self) -> None:
-        pass
-
-    @staticmethod
-    def _cleanup(tmpdir):
-        try:
-            import shutil
-            shutil.rmtree(tmpdir, ignore_errors=True)
-        except Exception:
-            pass
+        if self._tmpdir:
+            shutil.rmtree(self._tmpdir, ignore_errors=True)
+            self._tmpdir = ""

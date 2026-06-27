@@ -5,9 +5,10 @@ RIFE ncnn-vulkan 插帧引擎。
 依赖: GitHub Releases 预编译的 rife-ncnn-vulkan windows 包
 需要: Vulkan 驱动（GPU 自带即可）
 
-性能注意: ncnn CLI 不支持 stdin/stdout 流式推理，每对帧需通过
-临时文件通信。对视频流式处理，PyTorch RIFE (subprocess + pickle)
-速度快约 10×。
+性能注意:
+  持久 tmpdir + 固定文件名，避免每帧创建/删除临时目录的开销。
+  subprocess 进程启动开销（~50ms/次）无法消除（ncnn CLI 为单次调用模式），
+  如需更高性能请使用 PyTorch RIFE 子进程模式。
 """
 
 import os
@@ -44,7 +45,7 @@ class RIFENcnnEngine(FrameInterpolationEngine):
     """
     RIFE ncnn-vulkan 插帧引擎 (零 PyTorch 依赖)。
 
-    Vulkan 加速推理，每对帧通过 JPEG 临时文件与 ncnn CLI 通信。
+    Vulkan 加速推理，每对帧通过 PNG 临时文件与 ncnn CLI 通信。
     临时目录在 initialize() 时创建，release() 时清理。
     """
 
@@ -58,6 +59,9 @@ class RIFENcnnEngine(FrameInterpolationEngine):
         self._model_rel = ""
         self._gpu_id = 0
         self._tmpdir = ""
+        self._p0 = ""
+        self._p1 = ""
+        self._po = ""
 
     @property
     def name(self) -> str:
@@ -82,6 +86,9 @@ class RIFENcnnEngine(FrameInterpolationEngine):
         self._model_rel = os.path.basename(self._model_dir)
 
         self._tmpdir = tempfile.mkdtemp(prefix="rife_ncnn_")
+        self._p0 = os.path.join(self._tmpdir, "f0.png")
+        self._p1 = os.path.join(self._tmpdir, "f1.png")
+        self._po = os.path.join(self._tmpdir, "out.png")
 
         _log.info("RIFE ncnn 就绪 (%dx%d, %dx, model=%s)",
                   width, height, multiplier, self._model_rel)
@@ -92,18 +99,14 @@ class RIFENcnnEngine(FrameInterpolationEngine):
         if n <= 0:
             return []
 
-        p0 = os.path.join(self._tmpdir, "f0.jpg")
-        p1 = os.path.join(self._tmpdir, "f1.jpg")
-        po = os.path.join(self._tmpdir, "out.jpg")
-
-        cv2.imwrite(p0, frame0, [cv2.IMWRITE_JPEG_QUALITY, 92])
-        cv2.imwrite(p1, frame1, [cv2.IMWRITE_JPEG_QUALITY, 92])
+        cv2.imwrite(self._p0, frame0)
+        cv2.imwrite(self._p1, frame1)
 
         results = []
         for i in range(1, self._multiplier):
             t = i / self._multiplier
             cmd = [
-                self._exe, "-0", p0, "-1", p1, "-o", po,
+                self._exe, "-0", self._p0, "-1", self._p1, "-o", self._po,
                 "-s", str(t),
                 "-m", self._model_rel,
                 "-g", str(self._gpu_id),
@@ -118,9 +121,9 @@ class RIFENcnnEngine(FrameInterpolationEngine):
                     f"rife-ncnn-vulkan 推理失败 (timestep={t:.3f}): {stderr}"
                 )
 
-            out = cv2.imread(po)
+            out = cv2.imread(self._po)
             if out is None:
-                raise RuntimeError(f"rife-ncnn-vulkan 输出无法读取: {po}")
+                raise RuntimeError(f"rife-ncnn-vulkan 输出无法读取: {self._po}")
             if out.shape[:2] != (self._height, self._width):
                 out = cv2.resize(out, (self._width, self._height))
             results.append(out)
