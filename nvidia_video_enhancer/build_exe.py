@@ -124,6 +124,7 @@ def main():
         "--hidden-import", "nvidia_video_enhancer._logging",
         "--hidden-import", "nvidia_video_enhancer.ffmpeg_bridge",
         "--hidden-import", "nvidia_video_enhancer.ffmpeg_bridge.worker",
+        "--hidden-import", "ncnn",
     ] + exclude_flags + add_data + [LAUNCHER]
 
     print("=" * 50)
