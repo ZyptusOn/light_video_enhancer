@@ -1,0 +1,4 @@
+# Reproducible runtime for Windows 7 SP1 (64-bit).
+# Use CPython 3.8.10; newer CPython versions do not support Windows 7.
+numpy==1.24.4
+opencv-contrib-python==4.8.1.78

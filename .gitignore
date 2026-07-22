@@ -1,69 +1,46 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.egg-info/
 dist/
 build/
 *.egg
 *.spec
 
-# PyInstaller
-视频增强.exe
-
-# 输出视频
+# Generated video and debug output
 *_x*.mp4
 *_x*.mkv
 *_x*.mov
 *_f*.mp4
 *_f*.mkv
+*.partial.*
 debug*.png
 
-# IDE
+# IDE and operating system
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
+Thumbs.db
 
-# DLL（保留包内预编译的）
+# Binary artifacts: keep the packaged runtime only
 *.dll
 *.so
 *.lib
 *.exp
 *.o
 *.obj
-!nvidia_video_enhancer/ffmpeg_dlls/*
-!nvidia_video_enhancer/ffmpeg_bridge/*.dll
-!nvidia_video_enhancer/bridge/*.dll
+!light_video_enhancer/ffmpeg_dlls/*.dll
+!light_video_enhancer/ffmpeg_bridge/*.dll
+!light_video_enhancer/bridge/*.dll
+!light_video_enhancer/ncnn/**/*.dll
 
-# ncnn 模型和可执行文件（保留包内预编译的）
-*.bin
-*.param
-*.pkl
-*.exe
-!nvidia_video_enhancer/ncnn/**/*
-!nvidia_video_enhancer/fi/flownet.pkl
-
-# VLC 源码（仅参考）
-VLC/
-
-# ffmpeg 编译
-ffmpeg/build/
-ffmpeg/*.o
-ffmpeg/*.d
-
-# 系统
-.DS_Store
-Thumbs.db
-
-# 临时
+# Scratch files
 tmp/
 temp/
-
-# 参考代码 / 外部资源（不上传）
-svp/
-nvidia-vfx-python-samples-main/
-ffmpeg/
+tmp_build/
+input.mp4
 *.mp4
 *.mkv
 *.mov
