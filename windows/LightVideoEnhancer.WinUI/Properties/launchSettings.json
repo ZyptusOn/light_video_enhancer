@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "LightVideoEnhancer.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "LightVideoEnhancer.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

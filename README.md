@@ -11,30 +11,39 @@ Light Video Enhancer 是一款面向 Windows 的视频超分、插帧与转码�
 
 ## 下载
 
-| 系统 | 文件 | 说明 |
-|---|---|---|
-| Windows 10/11 x64 | [LightVideoEnhancer-Win10-11-x64.exe](https://github.com/ZyptusOn/light_video_enhancer/releases/download/v0.4.5/LightVideoEnhancer-Win10-11-x64.exe) | 推荐版本；支持现代 DPI、长路径和融合 CUDA 快速路径。 |
-| Windows 7 SP1 x64 | [LightVideoEnhancer-Win7-x64.exe](https://github.com/ZyptusOn/light_video_enhancer/releases/download/v0.4.5/LightVideoEnhancer-Win7-x64.exe) | 使用 Python 3.8.10 与兼容版 PyInstaller 构建。 |
+| 系统 | 文件 | 模型权重 | 说明 |
+|---|---|---|---|
+| Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 全部内置 | 解压即用；所有模型在“模型与下载”页显示为已内置。 |
+| Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 按需下载 | 推荐给带宽和磁盘有限的用户；可切换 GitHub、代理镜像、自定义源或导入本地 ZIP。 |
+| Windows 7 SP1 x64 | `LightVideoEnhancer-Win7-x64.exe` | 全部内置 | Python 3.8.10 / Tk 的冻结兼容版，不提供下载页。 |
 
-两个文件都是单文件 GUI，已内置 FFmpeg Worker、NCNN 命令行后端和模型，不需要安装系统 FFmpeg。首次启动会解压运行资源，杀毒软件扫描和 Vulkan 缓存建立可能使第一次使用稍慢。
+两个 WinUI 包使用完全相同的 GUI 与后端协议；区别只在后端是否嵌入权重。下载的模型保存在 `%LOCALAPPDATA%\LightVideoEnhancer\models`，升级或替换程序目录不会删除。两版都内置 FFmpeg Worker 和 NCNN 执行器，不需要系统 FFmpeg。
 
-### v0.4.5 校验值
+### WinUI 3 现代前端
+
+面向 Windows 10 1809 及以上系统，提供 Mica/Fluent 界面、拖放输入、硬件与环境页、模型下载页、中英文切换、机器可读进度和安全取消。GUI 不加载 Python、CUDA 或 Vulkan；它通过带版本号的标准输入输出协议调用独立后端。
+
+Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows 10/11 Tk 版本。建议只为 Win7 版提供关键兼容性修复，不再追求与 WinUI 的功能同步。
+
+开发与便携打包见 [`windows/README.md`](windows/README.md)，前后端边界和兼容策略见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
+
+### v0.5.0 校验值
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-Win10-11-x64.exe` | `DE89B4DE6EBE8522EAFFE1F4F1A7D82161442C8EE92B9EEA25E01EBEAB339BD4` |
-| `LightVideoEnhancer-Win7-x64.exe` | `B6EA4B2316FC78093EB348FE6F8732F66597A1274A6EDA38E37356079B596312` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `2B04FD53A513A4A2FA0373DA5FE4A431F65C3C7B9A21E5D4C1F4E7A5D7BAFC5E` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `74CA186E665072AFDBB844470F82E4D88F07932471BC4F8BBD2F634F5EA3C580` |
+| `LightVideoEnhancer-Win7-x64.exe` | `832182AD39F67345EFBAD876FD9607E349870584FB09CB62A8D502C802ED8768` |
 
-## v0.4.5 亮点
+## v0.5.0 亮点
 
-- 项目和 Python 包正式更名为 `light_video_enhancer`，命令行入口改为 `lve`。
-- 新增 Real-ESRGAN AnimeVideo-v3、x4plus、x4plus-anime，以及原始 ESRGAN x4 感知模型。
-- RIFE NCNN 与 NCNN 超分使用目录批处理和双向目录直连，避免中间帧反复进入 Python。
-- 批量大小按分辨率、插帧倍率和模型原生输出动态计算；编码队列与临时目录清理可和后续 Vulkan 推理重叠。
-- Windows 10/11 的 `RIFE PyTorch -> NV-VFX` 可进入融合 CUDA Worker，减少 GPU/CPU 往返。
-- 完善 H.264、H.265/HEVC、AV1 的 NVIDIA、AMD、Media Foundation 和软件编码回退。
-- 修复跨 NumPy 环境的 `No module named 'numpy._core'`、编码末帧丢失、帧率截断、音频片段时间戳和环境扫描遗漏等问题。
-- 分离 Windows 7 与 Windows 10/11 发布构建，并保留传统缩放、OpenCV 插帧和兼容编码路径。
+- Windows 10/11 改为 WinUI 3 现代前端，并提供 Full 与 Lite 两种发行包；两者共享完全相同的 GUI。
+- 新增模型下载页，可在 GitHub、代理镜像和自定义源之间切换，也可导入经过校验的本地模型 ZIP。
+- 模型可以安装到用户目录，升级 Lite 主程序时无需重复下载；Full 会自动识别内置权重。
+- WinUI 与后端改为显式版本化 JSON 协议，GUI 不再直接加载 Python、CUDA、Vulkan 或算法模块。
+- WinUI 与 CLI 新增中文/英文切换，补充新的应用 Logo、图标尺寸和 Windows 元数据。
+- Windows 10/11 Tk 版停止发布；Windows 7 Tk 版作为内含全部权重的冻结 LTS 保留。
+- 升级 Windows App SDK 1.8，并补充前后端兼容边界、模型包生成和双包构建文档。
 
 完整变化见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -222,6 +231,13 @@ python -m pip install -r requirements-build.txt
 python build_exe.py
 ```
 
+WinUI 3 自包含便携目录（需 .NET 10 SDK）：
+
+```powershell
+python -m pip install -r requirements-build.txt
+powershell -ExecutionPolicy Bypass -File windows\build_winui.ps1
+```
+
 Win7 单文件包必须使用 Python 3.8.10：
 
 ```powershell
@@ -249,8 +265,10 @@ light_video_enhancer/       Python 包
   ncnn/                     便携 NCNN 程序、模型和各自许可证
 benchmarks/                 GPU/NCNN 性能基准
 tests/                      单元与真实编解码往返测试
+windows/                    WinUI 3 前端、构建脚本与说明
 build_exe.py                双目标 PyInstaller 构建脚本
 launcher.py                 GUI 启动入口
+backend_launcher.py         WinUI 独立处理后端入口
 ```
 
 ## 从旧版迁移

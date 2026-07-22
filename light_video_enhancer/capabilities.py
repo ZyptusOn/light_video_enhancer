@@ -7,7 +7,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from ._paths import pkg_file_exists
+from ._paths import model_file_exists, pkg_file_exists
 from .encoding import CODEC_CHOICES, canonical_codec
 
 
@@ -85,11 +85,11 @@ def quick_capabilities() -> Dict[str, object]:
         worker = False
         encoders = ()
 
-    rife_model = pkg_file_exists("fi", "flownet.pkl")
-    cugan_model = all(pkg_file_exists("ncnn", "realcugan", "models-se", name)
+    rife_model = model_file_exists("fi", "flownet.pkl")
+    cugan_model = all(model_file_exists("ncnn", "realcugan", "models-se", name)
                       for name in ("up2x-conservative.param", "up2x-conservative.bin"))
     realesrgan_model = all(
-        pkg_file_exists("ncnn", "realesrgan", "models", name)
+        model_file_exists("ncnn", "realesrgan", "models", name)
         for name in ("realesr-animevideov3-x2.param",
                      "realesr-animevideov3-x2.bin",
                      "realesr-animevideov3-x3.param",
@@ -100,7 +100,7 @@ def quick_capabilities() -> Dict[str, object]:
                      "realesrgan-x4plus-anime.bin",
                      "realesrgan-x4plus.param", "realesrgan-x4plus.bin"))
     classic_esrgan_model = all(
-        pkg_file_exists("ncnn", "realesrgan", "models", name)
+        model_file_exists("ncnn", "realesrgan", "models", name)
         for name in ("esrgan-x4.param", "esrgan-x4.bin"))
     gpus = detect_gpus()
     vendors = {gpu.vendor for gpu in gpus}
@@ -114,10 +114,11 @@ def quick_capabilities() -> Dict[str, object]:
         "torch_current": _has_current_module("torch"),
         "nvvfx_current": _has_current_module("nvvfx"),
         "rife_model": rife_model,
-        "ncnn_rife": all(pkg_file_exists("ncnn", "rife", name)
-                         for name in ("rife-ncnn-vulkan.exe",
-                                      os.path.join("rife-v4.6", "flownet.param"),
-                                      os.path.join("rife-v4.6", "flownet.bin"))),
+        "ncnn_rife": (
+            pkg_file_exists("ncnn", "rife", "rife-ncnn-vulkan.exe")
+            and all(model_file_exists("ncnn", "rife", "rife-v4.6", name)
+                    for name in ("flownet.param", "flownet.bin"))
+        ),
         "ncnn_cugan": (pkg_file_exists("ncnn", "realcugan", "realcugan-ncnn-vulkan.exe")
                         and cugan_model),
         "ncnn_esrgan": (pkg_file_exists("ncnn", "realesrgan", "realesrgan-ncnn-vulkan.exe")

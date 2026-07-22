@@ -1,5 +1,29 @@
 # 更新日志
 
+## v0.5.0 — WinUI 双包、模型下载与稳定前后端协议
+
+### 发行与模型
+
+- Windows 10/11 发行版拆分为 Full 和 Lite；两者共用同一套 WinUI 3 前端。
+- Full 内置全部 RIFE、Real-CUGAN、Real-ESRGAN 与 ESRGAN 权重，Lite 只保留核心运行文件。
+- 新增模型下载页，支持 GitHub、代理镜像、自定义 URL 模板和本地 ZIP 导入。
+- 下载与导入会校验归档 SHA-256、单文件 SHA-256、精确文件清单和安全路径。
+- 外置模型默认安装到 `%LOCALAPPDATA%\LightVideoEnhancer\models`，程序升级不会清除。
+
+### 架构与界面
+
+- WinUI 与后端通过版本为 1 的 JSON/JSONL 协议通信，模型状态、环境和能力查询不再依赖 Python 内部结构。
+- 新增系统语言、中文和英文切换；CLI 增加 `--language` / `-L`。
+- 新增应用 Logo、ICO 和完整 WinUI 图标资源，并升级到 Windows App SDK 1.8。
+- Windows 10/11 Tk 版停止发布；Windows 7 Tk 版作为只含 Full 权重的冻结 LTS 保留。
+
+### 验证
+
+- Python 单元及集成测试 28 项通过。
+- WinUI Release x64 构建 0 警告、0 错误。
+- Full 与 Lite 中除后端文件外的 336 个前端文件逐一 SHA-256 相同。
+- Full、Lite 和 Windows 7 GUI 均通过启动冒烟测试。
+
 ## v0.4.5 — 双平台发布、NCNN 快速管线与 ESRGAN
 
 这是项目从早期 NVIDIA 专用原型走向可组合、跨厂商视频增强工具的一次完整重构。它保留了通过 D3D11 Video Processor 调用驱动视频增强能力的核心思路，同时补齐便携 NCNN、外部 PyTorch、软件回退、现代编码和 Windows 7 发布链。

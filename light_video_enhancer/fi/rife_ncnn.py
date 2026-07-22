@@ -11,7 +11,7 @@ from light_video_enhancer.fi.base import FrameInterpolationEngine
 from light_video_enhancer._image_batch import (
     make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
 from light_video_enhancer._logging import get_logger
-from light_video_enhancer._paths import get_pkg_dir
+from light_video_enhancer._paths import get_model_dir, get_pkg_dir
 
 _log = get_logger(__name__)
 
@@ -43,7 +43,7 @@ class RIFENcnnEngine(FrameInterpolationEngine):
             raise ValueError("RIFE 插帧倍率至少为 2")
         base = os.path.join(get_pkg_dir(), "ncnn", "rife")
         self._exe = os.path.join(base, "rife-ncnn-vulkan.exe")
-        self._model_dir = os.path.join(base, "rife-v4.6")
+        self._model_dir = get_model_dir("ncnn", "rife", "rife-v4.6")
         required = [self._exe, os.path.join(self._model_dir, "flownet.param"),
                     os.path.join(self._model_dir, "flownet.bin")]
         missing = [path for path in required if not os.path.isfile(path)]

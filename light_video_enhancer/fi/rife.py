@@ -10,7 +10,7 @@ import numpy as np
 from .base import FrameInterpolationEngine
 from ._scene_detect import PAIR_NORMAL, classify_pair, skipped_intermediates
 from .._logging import get_logger
-from .._paths import get_pkg_file
+from .._paths import get_model_file, get_pkg_file
 from .._shared_frames import SharedNDArray, read_framed, write_framed
 
 _log = get_logger(__name__)
@@ -30,12 +30,14 @@ if _TORCH_AVAILABLE:
 
 def _find_weight_file() -> Optional[str]:
     names = ["flownet.pkl", "rife_v4.25.pth", "rife_v4.26.pth"]
-    directories = [get_pkg_file("fi"), os.getcwd()]
-    for directory in directories:
-        for name in names:
-            path = os.path.join(directory, name)
-            if os.path.isfile(path):
-                return path
+    for name in names:
+        path = get_model_file("fi", name)
+        if os.path.isfile(path):
+            return path
+    for name in names:
+        path = os.path.join(os.getcwd(), name)
+        if os.path.isfile(path):
+            return path
     return None
 
 

@@ -11,7 +11,7 @@ import numpy as np
 from light_video_enhancer._image_batch import (
     make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
 from light_video_enhancer._logging import get_logger
-from light_video_enhancer._paths import get_pkg_dir
+from light_video_enhancer._paths import get_model_dir, get_pkg_dir
 from light_video_enhancer.sr.base import SuperResolutionEngine
 
 _log = get_logger(__name__)
@@ -56,7 +56,7 @@ class RealCUGANEngine(SuperResolutionEngine):
                    dst_width: int, dst_height: int) -> None:
         base = os.path.join(get_pkg_dir(), "ncnn", "realcugan")
         self._exe = os.path.join(base, "realcugan-ncnn-vulkan.exe")
-        self._models = os.path.join(base, "models-se")
+        self._models = get_model_dir("ncnn", "realcugan", "models-se")
         ratio = max(float(dst_width) / src_width, float(dst_height) / src_height)
         self._scale = max(2, min(4, int(math.ceil(ratio))))
         _noise, _tta, model_kind = self._QUALITY[self._quality]

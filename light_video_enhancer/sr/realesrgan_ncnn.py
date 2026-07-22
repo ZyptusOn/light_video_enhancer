@@ -11,7 +11,7 @@ import numpy as np
 from light_video_enhancer._image_batch import (
     make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
 from light_video_enhancer._logging import get_logger
-from light_video_enhancer._paths import get_pkg_dir
+from light_video_enhancer._paths import get_model_dir, get_pkg_dir
 from light_video_enhancer.sr.base import SuperResolutionEngine
 
 _log = get_logger(__name__)
@@ -80,7 +80,7 @@ class _NcnnESRGANBase(SuperResolutionEngine):
         ratio = max(float(dst_width) / src_width, float(dst_height) / src_height)
         self._target_scale = max(2, min(4, int(math.ceil(ratio))))
         self._exe = _find_realesrgan_exe()
-        self._models_dir = os.path.join(os.path.dirname(self._exe), "models")
+        self._models_dir = get_model_dir("ncnn", "realesrgan", "models")
         self._model_name, self._native_scale = self._select_model()
         required = [self._exe] + list(self._model_files())
         missing = [path for path in required if not os.path.isfile(path)]

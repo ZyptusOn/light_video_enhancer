@@ -1,0 +1,98 @@
+{
+  "packs": {
+    "esrgan-classic": {
+      "archive": "lve-model-esrgan-classic.zip",
+      "archive_size": 30936141,
+      "files": {
+        "ncnn/realesrgan/models/esrgan-x4.bin": "38c998af20c5890ae1e20b71555dd0c94f343e2fee13542e5201a845a46a9c84",
+        "ncnn/realesrgan/models/esrgan-x4.param": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86"
+      },
+      "installed_size": 33540549,
+      "sha256": "22fa05142e53575a27a118640cce2cc718b53b570f445cc676a83862918311d7"
+    },
+    "realcugan": {
+      "archive": "lve-model-realcugan.zip",
+      "archive_size": 26981119,
+      "files": {
+        "ncnn/realcugan/models-se/up2x-conservative.bin": "91c72c136e7ff8556323d4449c5ceeff22d9829bf8463a01137cadb8d59b84a0",
+        "ncnn/realcugan/models-se/up2x-conservative.param": "91efac7489bf249f092faa3764e3a3d1d31ef290051e39f2afd2138c98ccce30",
+        "ncnn/realcugan/models-se/up2x-denoise1x.bin": "09373c4fddfd2a57fb4af5e516eba1b4c9caa132fd52ffd01bcaefee543bf7f6",
+        "ncnn/realcugan/models-se/up2x-denoise1x.param": "91efac7489bf249f092faa3764e3a3d1d31ef290051e39f2afd2138c98ccce30",
+        "ncnn/realcugan/models-se/up2x-denoise2x.bin": "47427a52badebfbd7bb6db97196a2844c553f7f2bb93c9527b26347bea0430e7",
+        "ncnn/realcugan/models-se/up2x-denoise2x.param": "91efac7489bf249f092faa3764e3a3d1d31ef290051e39f2afd2138c98ccce30",
+        "ncnn/realcugan/models-se/up2x-denoise3x.bin": "610ebae63f388fe6f39615cc5f4eaeb038d5aa6ba8b299ba3b989f7f7a1a280a",
+        "ncnn/realcugan/models-se/up2x-denoise3x.param": "91efac7489bf249f092faa3764e3a3d1d31ef290051e39f2afd2138c98ccce30",
+        "ncnn/realcugan/models-se/up2x-no-denoise.bin": "7f135a712830b16678cb8247b9517308c5f3858fca9b10e1c3ad5ef6e261de0c",
+        "ncnn/realcugan/models-se/up2x-no-denoise.param": "91efac7489bf249f092faa3764e3a3d1d31ef290051e39f2afd2138c98ccce30",
+        "ncnn/realcugan/models-se/up3x-conservative.bin": "8321c450efedcd94192196b03ddec19c2a023a5637df7208d49e9e0461560dff",
+        "ncnn/realcugan/models-se/up3x-conservative.param": "9e71ba0bce194f6a95422140c8caa25accbbfd9ec84a0cc08f7f4ec1e615a5a8",
+        "ncnn/realcugan/models-se/up3x-denoise3x.bin": "fdb269034f7d6bf59be8fe1c03c43a75671af464e045a13870b24b649d64f1f6",
+        "ncnn/realcugan/models-se/up3x-denoise3x.param": "9e71ba0bce194f6a95422140c8caa25accbbfd9ec84a0cc08f7f4ec1e615a5a8",
+        "ncnn/realcugan/models-se/up3x-no-denoise.bin": "e22e8e647b20eb0067cc46b9cf83bcb0893b2e77e83beaee0bedecf4c735f716",
+        "ncnn/realcugan/models-se/up3x-no-denoise.param": "9e71ba0bce194f6a95422140c8caa25accbbfd9ec84a0cc08f7f4ec1e615a5a8",
+        "ncnn/realcugan/models-se/up4x-conservative.bin": "1ffde324bf3444adade3e70ff4ff4eac7a4bfbf4c01b5aab4563a89e5cec16da",
+        "ncnn/realcugan/models-se/up4x-conservative.param": "63e8f6a5a57acb4b7678fd928612538ae7208c836223becdb66ffb82bd2aab9b",
+        "ncnn/realcugan/models-se/up4x-denoise3x.bin": "1fe05d6066901d354bbbc0cb53fba6588ef7637e1ec9c3bce7546900484d0b35",
+        "ncnn/realcugan/models-se/up4x-denoise3x.param": "63e8f6a5a57acb4b7678fd928612538ae7208c836223becdb66ffb82bd2aab9b",
+        "ncnn/realcugan/models-se/up4x-no-denoise.bin": "aa3d9bda3f46bb48f709d874ccaf67877e94a2fd6cedca7dac5ccb3bf714e066",
+        "ncnn/realcugan/models-se/up4x-no-denoise.param": "63e8f6a5a57acb4b7678fd928612538ae7208c836223becdb66ffb82bd2aab9b"
+      },
+      "installed_size": 29108374,
+      "sha256": "b0f214242ba90f6d3d69e73a1890685612db621d41eac2c4019ae91bd693b99b"
+    },
+    "realesrgan-anime": {
+      "archive": "lve-model-realesrgan-anime.zip",
+      "archive_size": 8294019,
+      "files": {
+        "ncnn/realesrgan/models/realesrgan-x4plus-anime.bin": "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc",
+        "ncnn/realesrgan/models/realesrgan-x4plus-anime.param": "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4"
+      },
+      "installed_size": 8973790,
+      "sha256": "921c31f812f7f1058955c694cba284ac14acadc0c6d9e97d95d9e4e6c7f8294a"
+    },
+    "realesrgan-fast": {
+      "archive": "lve-model-realesrgan-fast.zip",
+      "archive_size": 3505594,
+      "files": {
+        "ncnn/realesrgan/models/realesr-animevideov3-x2.bin": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "ncnn/realesrgan/models/realesr-animevideov3-x2.param": "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04",
+        "ncnn/realesrgan/models/realesr-animevideov3-x3.bin": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "ncnn/realesrgan/models/realesr-animevideov3-x3.param": "d1a5755008791d09b57e3425fc9dd0bd26b00fdf79c606210bc0e693f8230881",
+        "ncnn/realesrgan/models/realesr-animevideov3-x4.bin": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "ncnn/realesrgan/models/realesr-animevideov3-x4.param": "850a248e7c14c27e5bd8cf7265113a9441036a7db63963bb8aa5169d788a435e"
+      },
+      "installed_size": 3751527,
+      "sha256": "14ab3704570177656fa755a62e94d117c8e95c9441b8e0c01e6e19be86a75daf"
+    },
+    "realesrgan-general": {
+      "archive": "lve-model-realesrgan-general.zip",
+      "archive_size": 30992249,
+      "files": {
+        "ncnn/realesrgan/models/realesrgan-x4plus.bin": "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf",
+        "ncnn/realesrgan/models/realesrgan-x4plus.param": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86"
+      },
+      "installed_size": 33540549,
+      "sha256": "d962108b8eb7970e77deadd051191c8a7630c662f86615982794df1132ea7090"
+    },
+    "rife-ncnn": {
+      "archive": "lve-model-rife-ncnn.zip",
+      "archive_size": 9886569,
+      "files": {
+        "ncnn/rife/rife-v4.6/flownet.bin": "f334ed2260149ce0188a6dcf049844e8b0cdd912e01cbcfb63553157d2508958",
+        "ncnn/rife/rife-v4.6/flownet.param": "28df14d57a225725ee5386f52eba422488450d37c9f40800ed4f62e8ba846692"
+      },
+      "installed_size": 10631069,
+      "sha256": "664fa6f22de4b45005532b0c21888ad1a10247a116df3945656c589912f7c761"
+    },
+    "rife-pytorch": {
+      "archive": "lve-model-rife-pytorch.zip",
+      "archive_size": 22903705,
+      "files": {
+        "fi/flownet.pkl": "6615790efd627772917205db291f51cd392528a157ecbb2ecaeec3bff8eb6de2"
+      },
+      "installed_size": 24636301,
+      "sha256": "83148008ba9e038ad77727c56aebb095ebe2d549cb38608690c6ef79a20784d1"
+    }
+  },
+  "protocol_version": 1
+}
