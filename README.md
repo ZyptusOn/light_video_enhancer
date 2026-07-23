@@ -31,8 +31,8 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 构建后填写 |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 构建后填写 |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `7C4ADB7044C68D5C4FC2CCDBC441BF4D80D9225538096897440E6A7F00A698A7` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `92DA25EA2CD2E4651DCE1867D27A04DC80288CDC613ADA0377D8A2838E597250` |
 
 Windows 7 LTS 包未在本次 WinUI 修复版中重建，继续使用 v0.5.0 发行文件。
 
