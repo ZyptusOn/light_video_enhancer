@@ -27,23 +27,23 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 开发与便携打包见 [`windows/README.md`](windows/README.md)，前后端边界和兼容策略见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
-### v0.5.0 校验值
+### v0.5.2 WinUI 校验值
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `2B04FD53A513A4A2FA0373DA5FE4A431F65C3C7B9A21E5D4C1F4E7A5D7BAFC5E` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `74CA186E665072AFDBB844470F82E4D88F07932471BC4F8BBD2F634F5EA3C580` |
-| `LightVideoEnhancer-Win7-x64.exe` | `832182AD39F67345EFBAD876FD9607E349870584FB09CB62A8D502C802ED8768` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 构建后填写 |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 构建后填写 |
 
-## v0.5.0 亮点
+Windows 7 LTS 包未在本次 WinUI 修复版中重建，继续使用 v0.5.0 发行文件。
 
-- Windows 10/11 改为 WinUI 3 现代前端，并提供 Full 与 Lite 两种发行包；两者共享完全相同的 GUI。
-- 新增模型下载页，可在 GitHub、代理镜像和自定义源之间切换，也可导入经过校验的本地模型 ZIP。
-- 模型可以安装到用户目录，升级 Lite 主程序时无需重复下载；Full 会自动识别内置权重。
-- WinUI 与后端改为显式版本化 JSON 协议，GUI 不再直接加载 Python、CUDA、Vulkan 或算法模块。
-- WinUI 与 CLI 新增中文/英文切换，补充新的应用 Logo、图标尺寸和 Windows 元数据。
-- Windows 10/11 Tk 版停止发布；Windows 7 Tk 版作为内含全部权重的冻结 LTS 保留。
-- 升级 Windows App SDK 1.8，并补充前后端兼容边界、模型包生成和双包构建文档。
+## v0.5.2 亮点
+
+- WinUI 前端改为自包含单文件发布；每个解压目录只保留前端与后端两个 EXE，不再铺开数百个 DLL 和无关语言目录。
+- 主窗口不再强制最大化，首页及其余页面使用居中的内容视口，编码区域移除多余的折叠子层级。
+- 通知条在没有有效标题和正文时彻底折叠，修复首页顶部空白提示条。
+- 后端 JSON 采用与控制台代码页无关的 ASCII 安全传输，修复模型下载页中文乱码。
+- 扫描 Python/PyTorch 后，
+- 外部后端定位兼容单文件自解压目录，并将 Python 标准流固定为 UTF-8。
 
 完整变化见 [CHANGELOG.md](CHANGELOG.md)。
 

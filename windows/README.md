@@ -45,7 +45,21 @@ dist\LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip
 
 只生成一种包可传入 `-Profile Full` 或 `-Profile Lite`。后端已存在时可加 `-SkipBackend`。
 
-两个目录中的 `LightVideoEnhancer.WinUI.exe` 和所有 WinUI 文件完全相同；只有被统一重命名为 `LightVideoEnhancer-Backend.exe` 的后端内容不同。Lite 保留 FFmpeg Worker、Vulkan 执行器和所有传统算法，只排除模型权重。
+两个目录都只有 `LightVideoEnhancer.WinUI.exe` 与 `LightVideoEnhancer-Backend.exe` 两个文件。前端使用 Windows App SDK 1.8 支持的自包含单文件发布，并仅保留中英文卫星资源；.NET 与 WinUI 运行库会在首次启动时解压到系统缓存，不再散落于程序目录。
+
+Full 与 Lite 的前端逐字节相同；只有被统一重命名为 `LightVideoEnhancer-Backend.exe` 的后端内容不同。Lite 保留 FFmpeg Worker、Vulkan 执行器和所有传统算法，只排除模型权重。
+
+## 外部运行环境门控
+
+WinUI 启动时不会自动扫描外部 Python。扫描前会禁用 NVIDIA Video Effects VSR、RIFE PyTorch 与 CUDA 光流；手动扫描后，只有在结果中分别确认 `PyTorch + CUDA + NV-VFX`、`PyTorch`、`PyTorch + CUDA` 时才会解锁。NCNN、D3D11 VSR 与传统 CPU 算法不受影响。
+
+## 体积与部署取舍
+
+v0.5.2 当前构建中，自包含 WinUI 前端约 85.6 MiB，去除 Tk 和重复 FFmpeg DLL 后的 Lite 后端约 83.0 MiB。自包含模式无需目标电脑预装 .NET 或 Windows App SDK，也是保持双 EXE 便携目录的原因。
+
+框架依赖试验构建的前端约 38.6 MiB，但要求用户另外安装 .NET 10 与 Windows App SDK 1.8，且不支持 WinUI 单文件发布。若以后发行 MSIX，可把它作为安装版选项，而不应替换当前便携包。
+
+不要直接启用 `PublishTrimmed`：当前 Windows App SDK / WinRT 投影会产生裁剪警告，实测产物会在 `Microsoft.UI.Xaml` 初始化期间崩溃。正式脚本会在发布前运行 `dotnet clean`，防止不同部署模式的中间文件污染单文件包。
 
 ## 模型包
 

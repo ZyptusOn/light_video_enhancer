@@ -9,7 +9,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    public Window? MainWindow { get; private set; }
+    public MainWindow? MainWindow { get; private set; }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {

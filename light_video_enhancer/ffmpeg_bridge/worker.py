@@ -19,7 +19,7 @@ def _get_dll_search_dirs():
     result = [os.path.join(package, "ffmpeg_dlls"), os.path.join(package, "bridge")]
     if is_frozen():
         bundle = getattr(sys, "_MEIPASS", "")
-        result.extend([os.path.join(bundle, "ffmpeg_dlls"), os.path.join(bundle, "bridge")])
+        result.extend([bundle, os.path.join(bundle, "ffmpeg_dlls"), os.path.join(bundle, "bridge")])
     return list(dict.fromkeys(result))
 
 

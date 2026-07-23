@@ -55,7 +55,7 @@ class LVEGUI(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("Light Video Enhancer 0.5.0")
+        self.title("Light Video Enhancer 0.5.2")
         self.geometry("900x760")
         self.minsize(780, 650)
         self.protocol("WM_DELETE_WINDOW", self._close)

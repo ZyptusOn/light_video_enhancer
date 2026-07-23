@@ -46,7 +46,10 @@ def _data_files(profile):
         "_shared_frames.py",
         "model_manifest.json",
         "_fused_rife_nvvfx_infer.py",
-        "ffmpeg_dlls",
+        os.path.join("ffmpeg_dlls", "avfilter-11.dll"),
+        os.path.join("ffmpeg_dlls", "avformat-62.dll"),
+        os.path.join("ffmpeg_dlls", "libzstd.dll"),
+        os.path.join("ffmpeg_dlls", "swresample-6.dll"),
         os.path.join("ffmpeg_bridge", "ffmpeg_worker.dll"),
         os.path.join("bridge", "dxva_vsr_bridge.dll"),
         os.path.join("fi", "_rife_infer.py"),
@@ -146,7 +149,7 @@ def main() -> None:
     hidden = [
         PACKAGE_NAME + ".fused_rife_nvvfx",
         PACKAGE_NAME, PACKAGE_NAME + ".pipeline", PACKAGE_NAME + ".config",
-        PACKAGE_NAME + ".cli", PACKAGE_NAME + ".gui", PACKAGE_NAME + ".capabilities",
+        PACKAGE_NAME + ".cli", PACKAGE_NAME + ".capabilities",
         PACKAGE_NAME + ".sr", PACKAGE_NAME + ".sr.dxva_vsr",
         PACKAGE_NAME + ".sr.nvvfx_sr", PACKAGE_NAME + ".sr.realcugan_ncnn",
         PACKAGE_NAME + ".sr.realesrgan_ncnn", PACKAGE_NAME + ".fi",
@@ -156,6 +159,8 @@ def main() -> None:
         PACKAGE_NAME + ".model_manager", PACKAGE_NAME + ".frontend_protocol",
         PACKAGE_NAME + "._paths",
     ]
+    if not args.backend:
+        hidden.append(PACKAGE_NAME + ".gui")
     command = [
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
         "--console" if args.backend else "--windowed",
@@ -171,13 +176,20 @@ def main() -> None:
         command.extend(["--icon", icon])
     for module in hidden:
         command.extend(["--hidden-import", module])
-    for module in ("torch", "torchvision", "torchaudio", "nvvfx", "tensorflow",
-                   "pandas", "matplotlib", "jupyter", "scipy"):
+    excluded = [
+        "torch", "torchvision", "torchaudio", "nvvfx", "tensorflow",
+        "pandas", "matplotlib", "jupyter", "scipy",
+    ]
+    if args.backend:
+        excluded.extend([PACKAGE_NAME + ".gui", "tkinter", "_tkinter", "idlelib", "turtle"])
+    for module in excluded:
         command.extend(["--exclude-module", module])
     command.extend(_data_files(args.profile))
     command.append(BACKEND_LAUNCHER if args.backend else LAUNCHER)
     build_env = dict(os.environ)
     build_env["PYTHONNOUSERSITE"] = "1"
+    ffmpeg_dll_dir = os.path.join(PACKAGE_DIR, "ffmpeg_dlls")
+    build_env["PATH"] = ffmpeg_dll_dir + os.pathsep + build_env.get("PATH", "")
     print("构建目标: %s%s | Python %s | PyInstaller %s | 项目 %s" % (
         "Windows 7" if target == "win7" else "Windows 10/11",
         (" WinUI 后端 (%s)" % args.profile) if args.backend else " GUI",

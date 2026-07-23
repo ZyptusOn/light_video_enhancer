@@ -44,11 +44,11 @@
                     <SymbolIcon Symbol="Setting" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
-<NavigationViewItem Content="模型与下载" Tag="models">
-    <NavigationViewItem.Icon>
-        <SymbolIcon Symbol="Download" />
-    </NavigationViewItem.Icon>
-</NavigationViewItem>
+            <NavigationViewItem Content="模型与下载" Tag="models">
+                <NavigationViewItem.Icon>
+                    <SymbolIcon Symbol="Download" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem Content="关于" Tag="about">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Help" />
@@ -57,8 +57,9 @@
         </NavigationView.MenuItems>
 
         <Grid Padding="24,16,24,24">
-            <ScrollViewer x:Name="ProcessView" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel MaxWidth="1180" HorizontalAlignment="Stretch" Spacing="16">
+            <ScrollViewer x:Name="ProcessView" HorizontalScrollBarVisibility="Disabled"
+                          HorizontalContentAlignment="Stretch">
+                <StackPanel MaxWidth="1180" HorizontalAlignment="Center" Spacing="16">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -76,7 +77,8 @@
                         </Border>
                     </Grid>
 
-                    <InfoBar x:Name="BackendInfoBar" IsOpen="False" IsClosable="True" />
+                    <InfoBar x:Name="BackendInfoBar" IsOpen="False" IsClosable="True"
+                             Visibility="Collapsed" Closed="BackendInfoBar_Closed" />
 
                     <Border Style="{StaticResource CardStyle}" AllowDrop="True"
                             DragOver="InputCard_DragOver" Drop="InputCard_Drop">
@@ -117,7 +119,8 @@
                                           SelectionChanged="QualitySelection_Changed" HorizontalAlignment="Stretch">
                                     <ComboBoxItem Content="自动选择（推荐）" Tag="auto" />
                                     <ComboBoxItem Content="D3D11 驱动 VSR" Tag="dxva_vsr" />
-                                    <ComboBoxItem Content="NVIDIA Video Effects VSR" Tag="nvvfx" />
+                                    <ComboBoxItem x:Name="NvVfxSrItem" Content="NVIDIA Video Effects VSR"
+                                                  Tag="nvvfx" IsEnabled="False" />
                                     <ComboBoxItem Content="Real-CUGAN ncnn-vulkan" Tag="realcugan" />
                                     <ComboBoxItem Content="Real-ESRGAN ncnn-vulkan" Tag="realesrgan" />
                                     <ComboBoxItem Content="ESRGAN 经典模型 ncnn" Tag="esrgan" />
@@ -149,11 +152,13 @@
                                 <ComboBox x:Name="FiEngineBox" Header="引擎" SelectedIndex="0"
                                           SelectionChanged="QualitySelection_Changed" HorizontalAlignment="Stretch">
                                     <ComboBoxItem Content="自动选择（推荐）" Tag="auto" />
-                                    <ComboBoxItem Content="RIFE AI（PyTorch）" Tag="rife" />
+                                    <ComboBoxItem x:Name="RifeFiItem" Content="RIFE AI（PyTorch）"
+                                                  Tag="rife" IsEnabled="False" />
                                     <ComboBoxItem Content="RIFE ncnn-vulkan" Tag="rife_ncnn" />
                                     <ComboBoxItem Content="DIS 稠密光流" Tag="dis" />
                                     <ComboBoxItem Content="Farneback 光流" Tag="optical_flow" />
-                                    <ComboBoxItem Content="CUDA 块匹配光流" Tag="torch_flow" />
+                                    <ComboBoxItem x:Name="TorchFlowFiItem" Content="CUDA 块匹配光流"
+                                                  Tag="torch_flow" IsEnabled="False" />
                                     <ComboBoxItem Content="快速帧混合" Tag="blend" />
                                     <ComboBoxItem Content="不插帧" Tag="none" />
                                 </ComboBox>
@@ -178,14 +183,12 @@
                     </Grid>
 
                     <Border Style="{StaticResource CardStyle}">
-                        <Expander IsExpanded="True">
-                            <Expander.Header>
+                        <StackPanel Spacing="14">
                                 <StackPanel Spacing="3">
                                     <TextBlock Style="{StaticResource SectionTitleStyle}" Text="编码、设备与片段" />
                                     <TextBlock Style="{StaticResource CaptionStyle}" Text="自动编码器会根据显卡厂商选择可用硬件后端，并在同格式内依次回退。" />
                                 </StackPanel>
-                            </Expander.Header>
-                            <StackPanel Padding="0,16,0,0" Spacing="14">
+                            <StackPanel Spacing="14">
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="1.25*" />
@@ -247,7 +250,7 @@
                                     <Button Grid.Column="1" Margin="0,26,0,0" Click="BrowseTorchPython_Click" Content="选择…" />
                                 </Grid>
                             </StackPanel>
-                        </Expander>
+                        </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource CardStyle}">
@@ -278,8 +281,9 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <ScrollViewer x:Name="EnvironmentView" Visibility="Collapsed" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel MaxWidth="1000" HorizontalAlignment="Stretch" Spacing="16">
+            <ScrollViewer x:Name="EnvironmentView" Visibility="Collapsed" HorizontalScrollBarVisibility="Disabled"
+                          HorizontalContentAlignment="Stretch">
+                <StackPanel MaxWidth="1000" HorizontalAlignment="Center" Spacing="16">
                     <StackPanel Spacing="4">
                         <TextBlock FontSize="30" FontWeight="SemiBold" Text="环境与后端" />
                         <TextBlock Style="{StaticResource CaptionStyle}"
@@ -298,7 +302,7 @@
                     </Border>
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel Spacing="10">
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="硬件与内置能力" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="硬件与可用能力" />
                             <TextBox x:Name="CapabilitiesBox" MinHeight="180" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" FontFamily="Consolas" />
                         </StackPanel>
@@ -316,8 +320,9 @@
                 </StackPanel>
             </ScrollViewer>
 
-<ScrollViewer x:Name="ModelsView" Visibility="Collapsed" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel MaxWidth="1000" HorizontalAlignment="Stretch" Spacing="16">
+            <ScrollViewer x:Name="ModelsView" Visibility="Collapsed" HorizontalScrollBarVisibility="Disabled"
+                          HorizontalContentAlignment="Stretch">
+                <StackPanel MaxWidth="1000" HorizontalAlignment="Center" Spacing="16">
         <StackPanel Spacing="4">
             <TextBlock FontSize="30" FontWeight="SemiBold" Text="模型与下载" />
             <TextBlock Style="{StaticResource CaptionStyle}"
@@ -345,7 +350,8 @@
                 <TextBlock x:Name="ModelRootText" Style="{StaticResource CaptionStyle}" FontFamily="Consolas" />
             </StackPanel>
         </Border>
-        <InfoBar x:Name="ModelInfoBar" IsOpen="False" IsClosable="True" />
+        <InfoBar x:Name="ModelInfoBar" IsOpen="False" IsClosable="True"
+                 Visibility="Collapsed" Closed="ModelInfoBar_Closed" />
         <ProgressBar x:Name="ModelProgress" Minimum="0" Maximum="100" Value="0" />
         <TextBlock x:Name="ModelStatusText" Style="{StaticResource CaptionStyle}" Text="正在读取模型状态…" />
         <ListView x:Name="ModelPacksList" SelectionMode="None">
@@ -374,17 +380,17 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-    </StackPanel>
-</ScrollViewer>
-            <ScrollViewer x:Name="AboutView" Visibility="Collapsed">
-                <StackPanel MaxWidth="760" HorizontalAlignment="Stretch" Spacing="16">
+                </StackPanel>
+            </ScrollViewer>
+            <ScrollViewer x:Name="AboutView" Visibility="Collapsed" HorizontalContentAlignment="Stretch">
+                <StackPanel MaxWidth="760" HorizontalAlignment="Center" Spacing="16">
                     <TextBlock FontSize="30" FontWeight="SemiBold" Text="关于" />
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel Spacing="12">
                             <TextBlock FontSize="24" FontWeight="SemiBold" Text="Light Video Enhancer" />
                             <TextBlock Style="{StaticResource CaptionStyle}"
                                        Text="WinUI 3 前端面向 Windows 10 1809 及以上系统；Windows 7 继续使用原有 Tk 前端。两个界面共享相同的 Python、C/C++、NCNN、CUDA 与 FFmpeg 处理核心。" />
-                            <TextBlock x:Name="VersionText" Text="版本 0.5.0 · WinUI 3" />
+                            <TextBlock x:Name="VersionText" Text="版本 0.5.2 · WinUI 3" />
                             <HyperlinkButton NavigateUri="https://github.com/ZyptusOn/light_video_enhancer"
                                              Content="打开 GitHub 仓库" />
                             <ComboBox x:Name="ThemeBox" Header="界面主题" SelectedIndex="0"
