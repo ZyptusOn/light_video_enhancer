@@ -35,7 +35,7 @@ public static class Localization
             ["取消"] = "Cancel", ["开始处理"] = "Start processing",
             ["处理后端"] = "Processing backend", ["刷新快速检测"] = "Refresh quick check",
             ["扫描 Python / PyTorch 环境"] = "Scan Python / PyTorch environments",
-            ["硬件与内置能力"] = "Hardware & built-in capabilities", ["Python 环境"] = "Python environments",
+            ["硬件与可用能力"] = "Hardware & available capabilities", ["Python 环境"] = "Python environments",
             ["下载源"] = "Download source", ["来源"] = "Source", ["GitHub（官方）"] = "GitHub (official)",
             ["GitHub Proxy（镜像）"] = "GitHub Proxy (mirror)", ["自定义地址"] = "Custom URL",
             ["自定义基础地址或 {archive} 模板"] = "Custom base URL or {archive} template",

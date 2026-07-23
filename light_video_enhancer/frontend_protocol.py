@@ -12,7 +12,7 @@ PROTOCOL_VERSION = 1
 
 
 def _print(value) -> None:
-    print(json.dumps(value, ensure_ascii=False), flush=True)
+    print(json.dumps(value, ensure_ascii=True), flush=True)
 
 
 def capabilities_payload() -> dict:

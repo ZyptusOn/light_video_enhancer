@@ -162,6 +162,7 @@ public sealed class BackendProcess : IDisposable
             StandardErrorEncoding = Encoding.UTF8,
         };
         startInfo.Environment["PYTHONUTF8"] = "1";
+        startInfo.Environment["PYTHONIOENCODING"] = "utf-8";
         startInfo.Environment["PYTHONUNBUFFERED"] = "1";
         foreach (string argument in Location.PrefixArguments.Concat(arguments))
         {
@@ -234,24 +235,32 @@ public sealed class BackendProcess : IDisposable
                 "External backend · " + Path.GetFileName(overridden));
         }
 
-        string baseDirectory = AppContext.BaseDirectory;
+        List<string> baseDirectories = [AppContext.BaseDirectory];
+        string? processDirectory = Path.GetDirectoryName(Environment.ProcessPath);
+        if (!string.IsNullOrWhiteSpace(processDirectory))
+        {
+            baseDirectories.Insert(0, processDirectory);
+        }
         string[] executableNames =
         [
             "LightVideoEnhancer-Backend.exe",
             "LightVideoEnhancer-Backend-Win10-11-x64.exe",
         ];
-        foreach (string name in executableNames)
+        foreach (string baseDirectory in baseDirectories.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            string candidate = Path.Combine(baseDirectory, name);
-            if (File.Exists(candidate))
+            foreach (string name in executableNames)
             {
-                return new BackendLocation(
-                    candidate, baseDirectory, Array.Empty<string>(),
-                    "Portable backend · " + name);
+                string candidate = Path.Combine(baseDirectory, name);
+                if (File.Exists(candidate))
+                {
+                    return new BackendLocation(
+                        candidate, baseDirectory, Array.Empty<string>(),
+                        "Portable backend · " + name);
+                }
             }
         }
 
-        string? projectRoot = FindProjectRoot(baseDirectory);
+        string? projectRoot = baseDirectories.Select(FindProjectRoot).FirstOrDefault(root => root is not null);
         string python = Environment.GetEnvironmentVariable("LVE_PYTHON") ?? "python.exe";
         if (projectRoot is not null)
         {

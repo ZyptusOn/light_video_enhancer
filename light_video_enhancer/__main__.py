@@ -15,7 +15,19 @@ def _remove_flag(argv, flag):
 
 def _progress_json(stage: str, current: int, total: int) -> None:
     payload = {"stage": stage, "current": int(current), "total": int(total)}
-    print(_PROGRESS_PREFIX + json.dumps(payload, ensure_ascii=False), flush=True)
+    print(_PROGRESS_PREFIX + json.dumps(payload, ensure_ascii=True), flush=True)
+
+
+def _configure_stdio() -> None:
+    """Keep the JSON-line protocol stable in frozen and legacy consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
 
 
 def _listen_for_control(enhancer) -> None:
@@ -32,6 +44,7 @@ def _listen_for_control(enhancer) -> None:
 
 
 def main() -> None:
+    _configure_stdio()
     argv = sys.argv[1:]
     from .i18n import extract_language
     try:

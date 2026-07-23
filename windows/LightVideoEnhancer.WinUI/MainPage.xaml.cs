@@ -28,6 +28,8 @@ public sealed partial class MainPage : Page
     private readonly BackendProcess _backend = new();
     private readonly StringBuilder _logText = new();
     private string _lastSuggestedOutput = string.Empty;
+    private string? _capabilitiesJson;
+    private string? _environmentsJson;
     private bool _loaded;
     private readonly ObservableCollection<ModelPackViewModel> _modelPacks = [];
     private bool _modelOperation;
@@ -51,6 +53,7 @@ public sealed partial class MainPage : Page
         }
         _loaded = true;
         Localization.Apply(this, IsChinese);
+        UpdateExternalEngineAvailability();
         RenderBackendPath();
         await RefreshCapabilitiesAsync();
         await RefreshModelsAsync();
@@ -424,10 +427,31 @@ public sealed partial class MainPage : Page
 
     private void ShowModelInfo(string title, string message, InfoBarSeverity severity)
     {
+        title = title.Trim();
+        message = message.Trim();
+        if (title.Length == 0 && message.Length == 0)
+        {
+            HideModelInfo();
+            return;
+        }
         ModelInfoBar.Title = title;
         ModelInfoBar.Message = message;
         ModelInfoBar.Severity = severity;
+        ModelInfoBar.Visibility = Visibility.Visible;
         ModelInfoBar.IsOpen = true;
+    }
+
+    private void HideModelInfo()
+    {
+        ModelInfoBar.IsOpen = false;
+        ModelInfoBar.Visibility = Visibility.Collapsed;
+        ModelInfoBar.Title = string.Empty;
+        ModelInfoBar.Message = string.Empty;
+    }
+
+    private void ModelInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        ModelInfoBar.Visibility = Visibility.Collapsed;
     }
 
     private async void RefreshCapabilities_Click(object sender, RoutedEventArgs e)
@@ -451,8 +475,10 @@ public sealed partial class MainPage : Page
             {
                 throw new InvalidOperationException(result.StandardError.Trim());
             }
-            RenderCapabilities(result.StandardOutput);
+            _capabilitiesJson = result.StandardOutput;
+            RenderCapabilities(_capabilitiesJson);
             BackendBadgeText.Text = T("后端已就绪", "Backend ready");
+            HideInfo();
         }
         catch (Exception exception)
         {
@@ -470,6 +496,12 @@ public sealed partial class MainPage : Page
             return;
         }
         ScanEnvironmentsButton.IsEnabled = false;
+        _environmentsJson = null;
+        UpdateExternalEngineAvailability();
+        if (!string.IsNullOrWhiteSpace(_capabilitiesJson))
+        {
+            RenderCapabilities(_capabilitiesJson);
+        }
         EnvironmentResultsBox.Text = T("正在并行扫描 Python、Conda、uv、pyenv 与虚拟环境…", "Scanning Python, Conda, uv, pyenv, and virtual environments in parallel…");
         try
         {
@@ -478,7 +510,12 @@ public sealed partial class MainPage : Page
             {
                 throw new InvalidOperationException(result.StandardError.Trim());
             }
-            RenderEnvironments(result.StandardOutput);
+            _environmentsJson = result.StandardOutput;
+            RenderEnvironments(_environmentsJson);
+            if (!string.IsNullOrWhiteSpace(_capabilitiesJson))
+            {
+                RenderCapabilities(_capabilitiesJson);
+            }
         }
         catch (Exception exception)
         {
@@ -521,6 +558,7 @@ public sealed partial class MainPage : Page
             return;
         }
         Localization.Apply(this, IsChinese);
+        UpdateExternalEngineAvailability();
         RenderBackendPath();
         await RefreshModelsAsync();
         await RefreshCapabilitiesAsync();
@@ -545,13 +583,17 @@ public sealed partial class MainPage : Page
             throw new ArgumentException(T("请选择输出文件。", "Choose an output file."));
         }
 
+        string srEngine = SelectedTag(SrEngineBox, "auto");
+        string fiEngine = SelectedTag(FiEngineBox, "auto");
+        ValidateExternalEngineSelection(srEngine, fiEngine);
+
         List<string> values =
         [
             "--language", _language, "--progress-json", "--control-stdin", input,
             "-o", output,
             "--scale", Numeric(ScaleBox.Value),
-            "--sr-engine", SelectedTag(SrEngineBox, "auto"),
-            "--fi-engine", SelectedTag(FiEngineBox, "auto"),
+            "--sr-engine", srEngine,
+            "--fi-engine", fiEngine,
             "--sr-quality", SelectedTag(SrQualityBox, "quality"),
             "--fi-quality", SelectedTag(FiQualityBox, "quality"),
             "--fi-multiplier", Math.Round(FiMultiplierBox.Value).ToString(CultureInfo.InvariantCulture),
@@ -615,6 +657,7 @@ public sealed partial class MainPage : Page
         }
         StringBuilder text = new();
         text.AppendLine("GPU");
+        string selectedNcnnGpu = SelectedTag(NcnnGpuBox, "auto");
         NcnnGpuBox.Items.Clear();
         NcnnGpuBox.Items.Add(new ComboBoxItem { Content = T("自动", "Auto"), Tag = "auto" });
         NcnnGpuBox.Items.Add(new ComboBoxItem { Content = "CPU", Tag = "cpu" });
@@ -635,6 +678,15 @@ public sealed partial class MainPage : Page
             text.AppendLine(T("  未检测到活动显示设备", "  No active display device detected"));
         }
         NcnnGpuBox.SelectedIndex = 0;
+        for (int index = 0; index < NcnnGpuBox.Items.Count; index++)
+        {
+            if (NcnnGpuBox.Items[index] is ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), selectedNcnnGpu, StringComparison.Ordinal))
+            {
+                NcnnGpuBox.SelectedIndex = index;
+                break;
+            }
+        }
 
         text.AppendLine();
         text.AppendLine(T("处理组件", "Processing components"));
@@ -646,6 +698,8 @@ public sealed partial class MainPage : Page
         AppendCapability(text, root, "ncnn_esrgan", "Real-ESRGAN ncnn");
         AppendCapability(text, root, "ncnn_classic_esrgan", T("ESRGAN 经典模型", "Classic ESRGAN model"));
 
+        AppendExternalEnvironmentCapabilities(text);
+
         text.AppendLine();
         text.AppendLine(T("可用编码器", "Available encoders"));
         if (root.TryGetProperty("encoders", out JsonElement encoders))
@@ -656,6 +710,7 @@ public sealed partial class MainPage : Page
             }
         }
         CapabilitiesBox.Text = text.ToString().TrimEnd();
+        UpdateExternalEngineAvailability();
         if (root.TryGetProperty("version", out JsonElement version))
         {
             VersionText.Text = (IsChinese ? "版本 " : "Version ") + version.GetString() + " · WinUI 3";
@@ -685,6 +740,10 @@ public sealed partial class MainPage : Page
                 text.AppendLine($"    GPU: {gpu}");
                 recommended ??= exe;
             }
+            else if (torch)
+            {
+                recommended ??= exe;
+            }
             if (environment.TryGetProperty("error", out JsonElement error) && !string.IsNullOrWhiteSpace(error.GetString()))
             {
                 text.AppendLine(T("    错误: ", "    Error: ") + error.GetString());
@@ -696,6 +755,35 @@ public sealed partial class MainPage : Page
         {
             TorchPythonBox.Text = recommended;
         }
+        UpdateExternalEngineAvailability();
+    }
+
+    private void AppendExternalEnvironmentCapabilities(StringBuilder text)
+    {
+        text.AppendLine();
+        text.AppendLine(T("外部 Python 能力", "External Python capabilities"));
+        if (string.IsNullOrWhiteSpace(_environmentsJson))
+        {
+            text.AppendLine(T("  — 尚未扫描；点击上方按钮检测 PyTorch、CUDA 与 NV-VFX。",
+                              "  — Not scanned; use the button above to detect PyTorch, CUDA, and NV-VFX."));
+            return;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(_environmentsJson);
+        int environments = 0;
+        int torch = 0;
+        int cuda = 0;
+        int nvvfx = 0;
+        foreach (JsonElement environment in document.RootElement.EnumerateArray())
+        {
+            environments++;
+            torch += BoolProperty(environment, "torch") ? 1 : 0;
+            cuda += BoolProperty(environment, "cuda") ? 1 : 0;
+            nvvfx += BoolProperty(environment, "nvvfx") ? 1 : 0;
+        }
+        text.AppendLine($"  {(torch > 0 ? "✓" : "—")} PyTorch ({torch}/{environments})");
+        text.AppendLine($"  {(cuda > 0 ? "✓" : "—")} CUDA ({cuda}/{environments})");
+        text.AppendLine($"  {(nvvfx > 0 ? "✓" : "—")} NVIDIA VFX ({nvvfx}/{environments})");
     }
 
     private static void AppendCapability(StringBuilder text, JsonElement root, string property, string label)
@@ -830,10 +918,31 @@ public sealed partial class MainPage : Page
 
     private void ShowInfo(string title, string message, InfoBarSeverity severity)
     {
+        title = title.Trim();
+        message = message.Trim();
+        if (title.Length == 0 && message.Length == 0)
+        {
+            HideInfo();
+            return;
+        }
         BackendInfoBar.Title = title;
         BackendInfoBar.Message = message;
         BackendInfoBar.Severity = severity;
+        BackendInfoBar.Visibility = Visibility.Visible;
         BackendInfoBar.IsOpen = true;
+    }
+
+    private void HideInfo()
+    {
+        BackendInfoBar.IsOpen = false;
+        BackendInfoBar.Visibility = Visibility.Collapsed;
+        BackendInfoBar.Title = string.Empty;
+        BackendInfoBar.Message = string.Empty;
+    }
+
+    private void BackendInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        BackendInfoBar.Visibility = Visibility.Collapsed;
     }
 
     private void RenderBackendPath()

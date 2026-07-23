@@ -31,17 +31,26 @@ foreach ($item in $profiles) {
     }
 }
 
-dotnet build $project `
+dotnet clean $project `
     --configuration $Configuration `
     --runtime win-x64 `
     -p:Platform=x64
 if ($LASTEXITCODE -ne 0) {
-    throw "WinUI build failed with exit code $LASTEXITCODE."
+    throw "WinUI clean failed with exit code $LASTEXITCODE."
 }
 
-$buildOutput = Join-Path $PSScriptRoot "LightVideoEnhancer.WinUI\bin\x64\$Configuration\net10.0-windows10.0.26100.0\win-x64"
-if (-not (Test-Path -LiteralPath (Join-Path $buildOutput "LightVideoEnhancer.WinUI.pri"))) {
-    throw "Compiled XAML resources are missing: $buildOutput"
+dotnet publish $project `
+    --configuration $Configuration `
+    --runtime win-x64 `
+    -p:Platform=x64
+if ($LASTEXITCODE -ne 0) {
+    throw "WinUI publish failed with exit code $LASTEXITCODE."
+}
+
+$buildOutput = Join-Path $PSScriptRoot "LightVideoEnhancer.WinUI\bin\x64\$Configuration\net10.0-windows10.0.26100.0\win-x64\publish"
+$frontendSource = Join-Path $buildOutput "LightVideoEnhancer.WinUI.exe"
+if (-not (Test-Path -LiteralPath $frontendSource)) {
+    throw "Published single-file frontend is missing: $frontendSource"
 }
 
 foreach ($item in $profiles) {
@@ -55,7 +64,7 @@ foreach ($item in $profiles) {
         Remove-Item -LiteralPath $zip -Force
     }
     New-Item -ItemType Directory -Path $output -Force | Out-Null
-    Copy-Item -Path (Join-Path $buildOutput "*") -Destination $output -Recurse -Force
+    Copy-Item -LiteralPath $frontendSource -Destination $output -Force
     Copy-Item -LiteralPath $backend -Destination (Join-Path $output "LightVideoEnhancer-Backend.exe") -Force
 
     $frontend = Join-Path $output "LightVideoEnhancer.WinUI.exe"
