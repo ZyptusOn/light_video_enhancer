@@ -124,7 +124,8 @@ class RIFEEngine(FrameInterpolationEngine):
         self._fp16 = use_cuda
         torch.set_grad_enabled(False)
         if use_cuda:
-            torch.backends.cudnn.benchmark = True
+            # Avoid a multi-second algorithm search before the first frame.
+            torch.backends.cudnn.benchmark = False
         self._model = FlownetCas().to(self._device).eval()
         state = torch.load(self._model_path, map_location=self._device)
         if isinstance(state, dict) and "state_dict" in state:

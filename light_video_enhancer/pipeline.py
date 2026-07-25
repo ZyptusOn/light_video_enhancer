@@ -15,9 +15,11 @@ import cv2
 import numpy as np
 
 from ._image_batch import read_frames, write_frames
+from ._ncnn_directory_stream import NcnnDirectoryStream
 from ._logging import get_logger
 from .capabilities import choose_codec, choose_engines, detect_gpus
 from .config import ProcessConfig
+from .executor import FrameBatchExecutor
 from .fi import FrameInterpolationEngine, create_fi_engine
 from .sr import SuperResolutionEngine, create_sr_engine
 
@@ -179,7 +181,7 @@ class VideoEnhancer:
         self._cancel_event = cancel_event or threading.Event()
         self._sr_engine: Optional[SuperResolutionEngine] = None
         self._fi_engine: Optional[FrameInterpolationEngine] = None
-        self._fused_engine = None
+        self._batch_executor: Optional[FrameBatchExecutor] = None
         self._src_width = self._src_height = 0
         self._src_fps = 0.0
         self._total_frames = 0
@@ -341,7 +343,7 @@ class VideoEnhancer:
             return preferred or sys.executable
         raise RuntimeError("没有同时提供 CUDA PyTorch 与 nvvfx 的 Python 环境")
 
-    def _try_init_fused(self) -> bool:
+    def _try_init_cuda_executor(self) -> bool:
         cfg = self._config
         if not (cfg.fi_engine == "rife" and cfg.sr_engine == "nvvfx" and
                 not cfg.sr_first and cfg.device != "cpu"):
@@ -356,7 +358,7 @@ class VideoEnhancer:
             engine.initialize(
                 self._src_width, self._src_height,
                 self._dst_width, self._dst_height, cfg.fi_multiplier)
-            self._fused_engine = engine
+            self._batch_executor = engine
             _log.info("融合快速路径就绪: %s", engine.name)
             return True
         except Exception as exc:
@@ -368,9 +370,54 @@ class VideoEnhancer:
             _log.warning("融合 CUDA 快速路径不可用，回退到独立后端: %s", exc)
             return False
 
+    def _try_init_native_ncnn(self) -> bool:
+        """Replace compatible NCNN CLI engines with one persistent worker."""
+        cfg = self._config
+        if ((cfg.sr_first and self._sr_engine is not None and
+             self._fi_engine is not None) or cfg.device == "cpu" or
+                cfg.ncnn_gpu == -1):
+            return False
+        engine = None
+        try:
+            from .native_ncnn import (
+                NativeNcnnEngine, native_worker_available, spec_from_engines)
+            if not native_worker_available():
+                return False
+            spec = spec_from_engines(
+                self._sr_engine, self._fi_engine, cfg.ncnn_gpu)
+            if spec is None:
+                return False
+            engine = NativeNcnnEngine(spec)
+            engine.initialize(
+                self._src_width, self._src_height,
+                self._dst_width, self._dst_height,
+                cfg.fi_multiplier if self._fi_engine is not None else 1)
+            legacy_engines = (self._fi_engine, self._sr_engine)
+            self._fi_engine = None
+            self._sr_engine = None
+            self._batch_executor = engine
+            for legacy in legacy_engines:
+                if legacy is not None:
+                    try:
+                        legacy.release()
+                    except Exception:
+                        _log.warning(
+                            "旧 NCNN 引擎释放失败，常驻 Worker 仍可继续",
+                            exc_info=True)
+            _log.info("NCNN 常驻快速路径就绪: %s", engine.name)
+            return True
+        except Exception as exc:
+            if engine is not None:
+                try:
+                    engine.release()
+                except Exception:
+                    pass
+            _log.warning("NCNN 常驻快速路径不可用，回退到 CLI 流水: %s", exc)
+            return False
+
     def _init_engines(self) -> None:
         cfg = self._config
-        if self._try_init_fused():
+        if self._try_init_cuda_executor():
             return
         ncnn_gpu = cfg.ncnn_gpu
         if cfg.sr_engine != "none":
@@ -392,6 +439,7 @@ class VideoEnhancer:
             height = self._dst_height if cfg.sr_first else self._src_height
             self._fi_engine.initialize(width, height, cfg.fi_multiplier)
             _log.info("插帧就绪: %s", self._fi_engine.name)
+        self._try_init_native_ncnn()
 
     def _selected_input(self, decoder) -> Iterator[np.ndarray]:
         cfg = self._config
@@ -427,66 +475,66 @@ class VideoEnhancer:
     def _sr_sequence(self, frames: List[np.ndarray]) -> List[np.ndarray]:
         if self._sr_engine is None:
             return frames
-        batch = getattr(self._sr_engine, "process_batch", None)
-        if callable(batch):
-            return batch(frames)
-        return [self._sr_engine.process(frame) for frame in frames]
+        return self._sr_engine.process_batch(frames)
 
     def _fi_sequence(self, frames: List[np.ndarray]) -> List[np.ndarray]:
         if self._fi_engine is None or len(frames) < 2:
             return frames
-        batch = getattr(self._fi_engine, "interpolate_batch", None)
-        if callable(batch):
-            return batch(frames)
-        output = [frames[0]]
-        for frame0, frame1 in zip(frames, frames[1:]):
-            output.extend(self._fi_engine.interpolate(frame0, frame1))
-            output.append(frame1)
-        return output
+        return self._fi_engine.interpolate_batch(frames)
 
     def _directory_chain_available(self) -> bool:
         available = (
             self._sr_engine is not None and self._fi_engine is not None
-            and callable(getattr(self._sr_engine, "process_directory", None))
-            and callable(getattr(self._fi_engine, "process_directory", None)))
+            and self._sr_engine.supports_directory_batch
+            and self._fi_engine.supports_directory_batch)
         if not available:
             return False
         if self._config.sr_first:
-            native_size = getattr(self._sr_engine, "batch_output_size", None)
-            return native_size == (self._dst_width, self._dst_height)
+            return self._sr_engine.batch_output_size == (
+                self._dst_width, self._dst_height)
         return True
+
+    def _run_directory_chain(self, work: str, input_dir: str,
+                             input_count: int) -> Tuple[str, int]:
+        if self._config.sr_first:
+            sr_dir = os.path.join(work, "upscaled")
+            output_dir = os.path.join(work, "interpolated")
+            count = self._sr_engine.process_directory(
+                input_dir, sr_dir, input_count)
+            count = self._fi_engine.process_directory(sr_dir, output_dir, count)
+        else:
+            rife_dir = os.path.join(work, "interpolated")
+            output_dir = os.path.join(work, "upscaled")
+            count = self._fi_engine.process_directory(
+                input_dir, rife_dir, input_count)
+            count = self._sr_engine.process_directory(rife_dir, output_dir, count)
+        return output_dir, count
+
+    def _submit_directory_cleanup(self, work: str) -> None:
+        if self._temp_cleaner is None:
+            self._temp_cleaner = _AsyncDirectoryCleaner()
+        self._temp_cleaner.submit(work)
 
     def _transform_directory_chain(self, frames: List[np.ndarray]) -> List[np.ndarray]:
         work = tempfile.mkdtemp(prefix="lve_ncnn_chain_")
         try:
             input_dir = os.path.join(work, "input")
             write_frames(frames, input_dir, "NCNN 管线")
-            if self._config.sr_first:
-                sr_dir = os.path.join(work, "upscaled")
-                output_dir = os.path.join(work, "interpolated")
-                count = self._sr_engine.process_directory(
-                    input_dir, sr_dir, len(frames))
-                count = self._fi_engine.process_directory(sr_dir, output_dir, count)
-            else:
-                rife_dir = os.path.join(work, "interpolated")
-                output_dir = os.path.join(work, "upscaled")
-                count = self._fi_engine.process_directory(
-                    input_dir, rife_dir, len(frames))
-                count = self._sr_engine.process_directory(rife_dir, output_dir, count)
+            output_dir, count = self._run_directory_chain(
+                work, input_dir, len(frames))
             result = read_frames(
                 output_dir, count, (self._dst_width, self._dst_height), "NCNN 管线")
         except BaseException:
             shutil.rmtree(work, ignore_errors=True)
             raise
-        if self._temp_cleaner is None:
-            self._temp_cleaner = _AsyncDirectoryCleaner()
-        self._temp_cleaner.submit(work)
+        self._submit_directory_cleanup(work)
         return result
 
     def _transform(self, frames: List[np.ndarray],
                    skip_first: bool = False) -> List[np.ndarray]:
-        if self._fused_engine is not None:
-            return self._fused_engine.process(frames, skip_first=skip_first)
+        if self._batch_executor is not None:
+            return self._batch_executor.process(
+                frames, skip_first=skip_first)
         if self._directory_chain_available() and len(frames) >= 2:
             return self._transform_directory_chain(frames)
         if self._config.sr_first:
@@ -494,16 +542,18 @@ class VideoEnhancer:
         return self._sr_sequence(self._fi_sequence(frames))
 
     def _batch_size(self) -> int:
-        if self._fused_engine is not None:
-            return self._fused_engine.batch_size
-        uses_batch = any(callable(getattr(engine, method, None)) for engine, method in (
-            (self._sr_engine, "process_batch"), (self._fi_engine, "interpolate_batch")))
+        if self._batch_executor is not None:
+            return self._batch_executor.batch_size
+        uses_batch = any(
+            engine is not None and engine.supports_batch
+            for engine in (self._sr_engine, self._fi_engine))
         if not uses_batch:
             return 3
         largest_pixels = max(
             self._src_width * self._src_height,
             self._dst_width * self._dst_height,
-            int(getattr(self._sr_engine, "batch_output_pixels", 0)))
+            self._sr_engine.batch_output_pixels
+            if self._sr_engine is not None else 0)
         output_multiplier = (self._config.fi_multiplier
                              if self._config.fi_engine != "none" else 1)
         budget = (384 if self._directory_chain_available() else 192) * 1024 * 1024
@@ -540,19 +590,44 @@ class VideoEnhancer:
             encoder_queue = max(4, min(64, output_per_batch))
             async_encoder = _AsyncEncoder(encoder, queue_size=encoder_queue)
             _log.info("批处理: 输入=%d, 编码队列=%d%s", batch_size, encoder_queue,
-                      ", NCNN 目录直连" if self._directory_chain_available() else "")
-            for chunk in self._chunks(self._selected_input(decoder), batch_size):
+                      ", NCNN 三级流水" if self._directory_chain_available() else "")
+
+            def consume(transformed, chunk_length):
+                nonlocal first_chunk, input_count
                 self._check_cancelled()
-                transformed = self._transform(chunk, skip_first=not first_chunk)
-                if not first_chunk and transformed and self._fused_engine is None:
+                if (not first_chunk and transformed and
+                        self._batch_executor is None):
                     transformed = transformed[1:]
-                unique_input = len(chunk) if first_chunk else max(0, len(chunk) - 1)
+                unique_input = (chunk_length if first_chunk
+                                else max(0, chunk_length - 1))
                 input_count += unique_input
                 first_chunk = False
                 for frame in transformed:
                     for output_frame in resampler.feed(frame):
                         async_encoder.put(output_frame)
                 self._progress("处理", input_count, self._selected_frames)
+
+            chunks = self._chunks(self._selected_input(decoder), batch_size)
+            if self._directory_chain_available():
+                with NcnnDirectoryStream(
+                        chunks, self._run_directory_chain) as stream:
+                    for job in stream:
+                        try:
+                            transformed = read_frames(
+                                job.output_dir, job.output_count,
+                                (self._dst_width, self._dst_height),
+                                "NCNN 管线")
+                        except BaseException:
+                            shutil.rmtree(job.work, ignore_errors=True)
+                            raise
+                        self._submit_directory_cleanup(job.work)
+                        consume(transformed, job.input_count)
+            else:
+                for chunk in chunks:
+                    transformed = self._transform(
+                        chunk, skip_first=not first_chunk)
+                    consume(transformed, len(chunk))
+
             if input_count == 0:
                 raise RuntimeError("选定时间范围内没有可处理的视频帧")
             output_count = async_encoder.finish()
@@ -570,11 +645,16 @@ class VideoEnhancer:
                 decoder.close()
 
     def _release_engines(self) -> None:
+        engines = (
+            self._batch_executor, self._fi_engine, self._sr_engine)
+        self._batch_executor = None
+        self._fi_engine = None
+        self._sr_engine = None
         cleaner = self._temp_cleaner
         self._temp_cleaner = None
         if cleaner is not None:
             cleaner.finish()
-        for engine in (self._fused_engine, self._fi_engine, self._sr_engine):
+        for engine in engines:
             if engine is not None:
                 try:
                     engine.release()

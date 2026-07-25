@@ -1,9 +1,11 @@
+import os
 import pickle
 import sys
 import unittest
 
 import numpy as np
 
+from light_video_enhancer._image_batch import ncnn_jobs, ncnn_tile
 from light_video_enhancer.capabilities import GPUInfo, _vendor_from_text, choose_codec, quick_capabilities
 from light_video_enhancer.cli import _auto_output
 from light_video_enhancer.config import ProcessConfig
@@ -132,7 +134,32 @@ class CoreTests(unittest.TestCase):
         balanced = create_sr_engine("realesrgan", quality="balanced")
         balanced.initialize(64, 48, 128, 96)
         self.assertEqual((balanced._model_name, balanced._native_scale),
+                         ("realesr-animevideov3", 2))
+        balanced.initialize(64, 48, 256, 192)
+        self.assertEqual((balanced._model_name, balanced._native_scale),
                          ("realesrgan-x4plus-anime", 4))
+
+    def test_ncnn_fallback_tuning_overrides_are_validated(self):
+        old_jobs = os.environ.get("LVE_NCNN_JOBS_RIFE")
+        old_tile = os.environ.get("LVE_NCNN_TILE_REALCUGAN")
+        try:
+            os.environ["LVE_NCNN_JOBS_RIFE"] = "2:3:2"
+            os.environ["LVE_NCNN_TILE_REALCUGAN"] = "256"
+            self.assertEqual(ncnn_jobs(1280, 720, engine="rife"), "2:3:2")
+            self.assertEqual(ncnn_tile("realcugan"), 256)
+            os.environ["LVE_NCNN_JOBS_RIFE"] = "broken"
+            os.environ["LVE_NCNN_TILE_REALCUGAN"] = "16"
+            self.assertEqual(ncnn_jobs(1280, 720, engine="rife"), "4:4:4")
+            self.assertEqual(ncnn_tile("realcugan"), 0)
+        finally:
+            if old_jobs is None:
+                os.environ.pop("LVE_NCNN_JOBS_RIFE", None)
+            else:
+                os.environ["LVE_NCNN_JOBS_RIFE"] = old_jobs
+            if old_tile is None:
+                os.environ.pop("LVE_NCNN_TILE_REALCUGAN", None)
+            else:
+                os.environ["LVE_NCNN_TILE_REALCUGAN"] = old_tile
 
     def test_esrgan_models_are_reported_available(self):
         caps = quick_capabilities()
@@ -141,6 +168,9 @@ class CoreTests(unittest.TestCase):
 
     def test_ncnn_chain_uses_output_aware_batch_budget(self):
         class DirectoryEngine:
+            supports_batch = True
+            supports_directory_batch = True
+
             def process_batch(self, frames):
                 return frames
 

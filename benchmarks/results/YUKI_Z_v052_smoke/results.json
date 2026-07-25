@@ -1,0 +1,46 @@
+{
+  "input": "C:\\Users\\24645\\Downloads\\YUKI_Z.mp4",
+  "source": {
+    "width": 1280,
+    "height": 720,
+    "fps": 29.999417713165506,
+    "total_frames": 483
+  },
+  "start": 4.0,
+  "duration": 0.2,
+  "codec": "hevc_nvenc",
+  "preset": "p5",
+  "crf": 23,
+  "sample_interval": 0.5,
+  "results": [
+    {
+      "name": "dxva_vsr_only",
+      "label": "D3D11 driver VSR only",
+      "return_code": 0,
+      "wall_seconds": 4.5686337999941316,
+      "init_seconds": 3.1151179000007687,
+      "processing_seconds": 1.4535158999933628,
+      "input_frames": 6,
+      "output_frames": 6,
+      "output_width": 2560,
+      "output_height": 1440,
+      "output_fps": 29.999417713760344,
+      "output_mib": 0.3678436279296875,
+      "input_fps_effective": 4.127921820481907,
+      "output_fps_effective": 4.127921820481907,
+      "realtime_factor": 0.04377676319784197,
+      "cpu_avg": 26.778944558708734,
+      "cpu_peak": 34.34046961325967,
+      "gpu_avg": 2.0,
+      "gpu_peak": 4.0,
+      "encoder_avg": 2.0,
+      "encoder_peak": 6.0,
+      "decoder_avg": 4.0,
+      "memory_peak_mib": 477.0,
+      "power_avg_w": 19.926666666666666,
+      "log_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_v052_smoke\\dxva_vsr_only.log",
+      "output_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_v052_smoke\\dxva_vsr_only.mp4",
+      "error": ""
+    }
+  ]
+}

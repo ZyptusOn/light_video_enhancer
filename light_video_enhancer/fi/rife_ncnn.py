@@ -12,6 +12,7 @@ from light_video_enhancer._image_batch import (
     make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
 from light_video_enhancer._logging import get_logger
 from light_video_enhancer._paths import get_model_dir, get_pkg_dir
+from light_video_enhancer.ncnn_contract import NcnnInterpolationStage
 
 _log = get_logger(__name__)
 
@@ -24,7 +25,8 @@ class RIFENcnnEngine(FrameInterpolationEngine):
     """Portable Vulkan RIFE with directory-to-directory chaining support."""
 
     def __init__(self, quality: str = "balanced", gpu_id: Optional[int] = None):
-        self._quality = quality
+        self._quality = quality if quality in {
+            "fast", "balanced", "quality", "ultra"} else "balanced"
         self._gpu_id = gpu_id
         self._width = 0
         self._height = 0
@@ -36,7 +38,17 @@ class RIFENcnnEngine(FrameInterpolationEngine):
     def name(self) -> str:
         target = "auto GPU" if self._gpu_id is None else (
             "CPU" if self._gpu_id < 0 else "GPU %d" % self._gpu_id)
-        return "RIFE ncnn-vulkan (batch, %s)" % target
+        tta = ", spatial TTA" if self._quality == "ultra" else ""
+        return "RIFE ncnn-vulkan (v4.6, %s%s, %s)" % (
+            self._quality, tta, target)
+
+    @property
+    def supports_batch(self) -> bool:
+        return True
+
+    @property
+    def supports_directory_batch(self) -> bool:
+        return True
 
     def initialize(self, width: int, height: int, multiplier: int = 2) -> None:
         if multiplier < 2:
@@ -82,12 +94,15 @@ class RIFENcnnEngine(FrameInterpolationEngine):
             self._exe, "-i", input_dir.replace("\\", "/"),
             "-o", output_dir.replace("\\", "/"),
             "-n", str(target_count), "-m", self._model_dir.replace("\\", "/"),
-            "-j", ncnn_jobs(self._width, self._height), "-f", "%08d.png",
+            "-j", ncnn_jobs(self._width, self._height, engine="rife"),
+            "-f", "%08d.png",
         ]
         if self._gpu_id is not None:
             command.extend(["-g", str(self._gpu_id)])
         if self._width * self._height > 1920 * 1080:
             command.append("-u")
+        if self._quality == "ultra":
+            command.append("-x")
         result = subprocess.run(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             timeout=max(120, input_count * 30), creationflags=_no_window_flag())
@@ -97,6 +112,12 @@ class RIFENcnnEngine(FrameInterpolationEngine):
                                (error or result.returncode))
         validate_outputs(output_dir, target_count, "RIFE ncnn")
         return target_count
+
+    def native_ncnn_stage(self) -> NcnnInterpolationStage:
+        return NcnnInterpolationStage(
+            model_dir=self._model_dir,
+            tta=self._quality == "ultra",
+            uhd=self._width * self._height > 1920 * 1080)
 
     def release(self) -> None:
         pass

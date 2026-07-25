@@ -6,6 +6,7 @@ Python ``imread``/``imwrite`` round trip between them.
 """
 
 import os
+import re
 from typing import Iterable, List, Optional, Tuple
 
 import cv2
@@ -62,10 +63,32 @@ def read_frames(directory: str, expected: int,
     return output
 
 
+_NCNN_JOBS_PATTERN = re.compile(r"^[1-9]\d*:[1-9]\d*(?:,[1-9]\d*)*:[1-9]\d*$")
+
+
+def _engine_environment(name: str, engine: str) -> str:
+    suffix = "".join(char if char.isalnum() else "_"
+                     for char in engine.upper()).strip("_")
+    if suffix:
+        scoped = os.environ.get("%s_%s" % (name, suffix), "").strip()
+        if scoped:
+            return scoped
+    return os.environ.get(name, "").strip()
+
+
 def ncnn_jobs(src_width: int, src_height: int,
               dst_width: Optional[int] = None,
-              dst_height: Optional[int] = None) -> str:
-    """Choose conservative load:process:save concurrency by largest frame."""
+              dst_height: Optional[int] = None,
+              engine: str = "") -> str:
+    """Choose load:process:save concurrency, with a benchmark override.
+
+    ``LVE_NCNN_JOBS`` applies globally and an engine-specific variable such as
+    ``LVE_NCNN_JOBS_RIFE`` takes precedence. Invalid values are ignored so a
+    stale profile cannot prevent the portable CLI fallback from starting.
+    """
+    overridden = _engine_environment("LVE_NCNN_JOBS", engine)
+    if overridden and _NCNN_JOBS_PATTERN.fullmatch(overridden):
+        return overridden
     largest = src_width * src_height
     if dst_width and dst_height:
         largest = max(largest, dst_width * dst_height)
@@ -74,3 +97,15 @@ def ncnn_jobs(src_width: int, src_height: int,
     if largest <= 2560 * 1440:
         return "3:3:3"
     return "2:2:2"
+
+
+def ncnn_tile(engine: str = "") -> int:
+    """Return an optional measured tile override; zero keeps CLI auto sizing."""
+    value = _engine_environment("LVE_NCNN_TILE", engine)
+    if not value:
+        return 0
+    try:
+        parsed = int(value)
+    except ValueError:
+        return 0
+    return parsed if parsed == 0 or parsed >= 32 else 0

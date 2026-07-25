@@ -11,6 +11,7 @@ import numpy as np
 from ._logging import get_logger
 from ._paths import get_pkg_file
 from ._shared_frames import FramedPipeReader, SharedNDArray, write_framed
+from .executor import FrameBatchExecutor
 from .fi._scene_detect import classify_pair
 from .fi.rife import _find_weight_file
 from .sr.nvvfx_sr import _GUI_QUALITY_LEVELS, _NVVFX_QUALITY_LEVELS
@@ -41,7 +42,7 @@ class YUV420Frame:
         self.is_yuv420 = True
 
 
-class FusedRifeNvvfxEngine:
+class FusedRifeNvvfxEngine(FrameBatchExecutor):
     """Keep RIFE intermediate tensors on CUDA before NV-VFX inference."""
 
     def __init__(self, torch_python: Optional[str], quality: str = "quality"):

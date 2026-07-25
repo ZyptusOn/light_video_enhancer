@@ -51,7 +51,8 @@ def _load_model(args):
         raise RuntimeError("外部 Python 的 PyTorch CUDA 不可用")
     device = torch.device("cuda")
     torch.set_grad_enabled(False)
-    torch.backends.cudnn.benchmark = True
+    # RIFE uses fixed shapes, but cuDNN search costs several seconds per job.
+    torch.backends.cudnn.benchmark = False
     model = FlownetCas().to(device).eval()
     path = args.get("model_path", "")
     if not os.path.isfile(path):

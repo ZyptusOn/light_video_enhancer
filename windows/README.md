@@ -55,7 +55,7 @@ WinUI 启动时不会自动扫描外部 Python。扫描前会禁用 NVIDIA Video
 
 ## 体积与部署取舍
 
-v0.5.2 当前构建中，自包含 WinUI 前端约 85.6 MiB，去除 Tk 和重复 FFmpeg DLL 后的 Lite 后端约 83.0 MiB。自包含模式无需目标电脑预装 .NET 或 Windows App SDK，也是保持双 EXE 便携目录的原因。
+v0.6.0 当前构建中，自包含 WinUI 前端约 85.6 MiB，包含原生 NCNN worker 的 Lite 后端约 86.5 MiB。自包含模式无需目标电脑预装 .NET 或 Windows App SDK，也是保持双 EXE 便携目录的原因。
 
 框架依赖试验构建的前端约 38.6 MiB，但要求用户另外安装 .NET 10 与 Windows App SDK 1.8，且不支持 WinUI 单文件发布。若以后发行 MSIX，可把它作为安装版选项，而不应替换当前便携包。
 

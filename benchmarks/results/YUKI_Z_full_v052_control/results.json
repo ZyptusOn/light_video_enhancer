@@ -1,0 +1,46 @@
+{
+  "input": "C:\\Users\\24645\\Downloads\\YUKI_Z.mp4",
+  "source": {
+    "width": 1280,
+    "height": 720,
+    "fps": 29.999417713165506,
+    "total_frames": 483
+  },
+  "start": 0.0,
+  "duration": 16.1,
+  "codec": "hevc_nvenc",
+  "preset": "p5",
+  "crf": 23,
+  "sample_interval": 0.5,
+  "results": [
+    {
+      "name": "rife_nvvfx",
+      "label": "RIFE PyTorch + NVIDIA Video Effects VSR",
+      "return_code": 0,
+      "wall_seconds": 25.022992900005192,
+      "init_seconds": 5.241778900002828,
+      "processing_seconds": 19.781214000002365,
+      "input_frames": 483,
+      "output_frames": 965,
+      "output_width": 2560,
+      "output_height": 1440,
+      "output_fps": 59.99883542752069,
+      "output_mib": 32.30978202819824,
+      "input_fps_effective": 24.417106048190078,
+      "output_fps_effective": 48.78365908178763,
+      "realtime_factor": 0.6434082471404394,
+      "cpu_avg": 17.58695396967096,
+      "cpu_peak": 21.947053800170792,
+      "gpu_avg": 40.885714285714286,
+      "gpu_peak": 70.0,
+      "encoder_avg": 21.8,
+      "encoder_peak": 47.0,
+      "decoder_avg": 0.6857142857142857,
+      "memory_peak_mib": 1513.0,
+      "power_avg_w": 75.588,
+      "log_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_full_v052_control\\rife_nvvfx.log",
+      "output_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_full_v052_control\\rife_nvvfx.mp4",
+      "error": ""
+    }
+  ]
+}

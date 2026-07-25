@@ -1,0 +1,46 @@
+{
+  "input": "C:\\Users\\24645\\Downloads\\YUKI_Z.mp4",
+  "source": {
+    "width": 1280,
+    "height": 720,
+    "fps": 29.999417713165506,
+    "total_frames": 483
+  },
+  "start": 4.0,
+  "duration": 4.0,
+  "codec": "hevc_nvenc",
+  "preset": "p5",
+  "crf": 23,
+  "sample_interval": 0.5,
+  "results": [
+    {
+      "name": "rife_dxva_vsr",
+      "label": "RIFE PyTorch + D3D11 driver VSR",
+      "return_code": 0,
+      "wall_seconds": 19.40527529999963,
+      "init_seconds": 4.9791875000082655,
+      "processing_seconds": 14.426087799991365,
+      "input_frames": 120,
+      "output_frames": 239,
+      "output_width": 2560,
+      "output_height": 1440,
+      "output_fps": 59.99883542752069,
+      "output_mib": 10.018741607666016,
+      "input_fps_effective": 8.31826352811133,
+      "output_fps_effective": 16.5672081934884,
+      "realtime_factor": 0.20612951571988655,
+      "cpu_avg": 19.198252812875776,
+      "cpu_peak": 27.10997442455243,
+      "gpu_avg": 9.538461538461538,
+      "gpu_peak": 26.0,
+      "encoder_avg": 6.538461538461538,
+      "encoder_peak": 19.0,
+      "decoder_avg": 0.38461538461538464,
+      "memory_peak_mib": 1203.0,
+      "power_avg_w": 29.01153846153846,
+      "log_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_final_dxva_control\\rife_dxva_vsr.log",
+      "output_path": "D:\\AAALearning\\tst\\light_video_enhancer\\benchmarks\\results\\YUKI_Z_final_dxva_control\\rife_dxva_vsr.mp4",
+      "error": ""
+    }
+  ]
+}

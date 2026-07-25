@@ -1,5 +1,38 @@
 # 更新日志
 
+## v0.6.0 — 常驻 NCNN/Vulkan worker 与后端执行器重构
+
+### 性能与架构
+
+- 新增常驻原生 `lve-ncnn-worker.exe`，在同一个 Vulkan 进程内执行 RIFE NCNN 与 Real-CUGAN、Real-ESRGAN 或 ESRGAN。
+- 使用 Windows 命名共享内存传输 BGR24 帧，消除逐批进程启动、PNG 编解码和磁盘中转；初始化失败会自动回退到兼容目录流水。
+- 新增双工作区目录三级流水，让解码、NCNN 目录任务与编码能够交叠执行。
+- 新增统一的 `FrameBatchExecutor` 和不可变 NCNN 阶段契约；管线不再读取具体引擎的私有字段。
+- Real-ESRGAN 2×/3× 快速与平衡档改用 AnimeVideo-v3 原生倍率，避免 4× 推理后缩小。
+- RIFE PyTorch、融合 RIFE + NV-VFX 和外部 RIFE worker 关闭重复 cuDNN 形状搜索，降低短视频启动开销。
+- 原生 worker 复用模型、Vulkan 管线和中间缓冲，并增加批次错误隔离、BGR↔RGB 修正与明确的资源所有权。
+
+### 界面与兼容
+
+- WinUI 明暗主题应用到窗口根视觉树、Mica、导航区和标题栏，修复切换到明亮模式后背景底层仍为黑色。
+- GUI 与 CLI 继续只依赖 `ProcessConfig` 和稳定协议；新增或替换后端不需要复制前端判断逻辑。
+- 原生 worker 以 `_WIN32_WINNT=0x0601`、静态 MSVC 运行库构建，并将 `vcomp140.dll` 随包提供。
+- 保留 `LVE_DISABLE_FUSED_NCNN=1` 兼容开关，可强制回退到旧 CLI/PNG 路径。
+
+### 性能结果
+
+- RIFE NCNN + Real-CUGAN：1.50 → 4.99 输入 fps，提升 3.32×。
+- RIFE NCNN + Real-ESRGAN AnimeVideo-v3：1.85 → 8.18 输入 fps，提升 4.42×。
+- RIFE NCNN + ESRGAN classic：0.14 → 0.33 输入 fps，提升 2.33×。
+- 同机 RIFE PyTorch + NVIDIA VFX 基线为 8.01 输入 fps。
+
+### 验证与发布
+
+- Python 单元及集成测试 35 项通过；真实视频冒烟与图像回归对照通过。
+- WinUI Release x64 构建 0 警告、0 错误；Full/Lite 均保持两个 EXE、零子目录。
+- Full/Lite 后端均返回协议版本 1 和程序版本 0.6.0，模型状态分别符合内置/按需下载预期。
+- Windows 7 Full GUI 使用 Python 3.8.10 与 PyInstaller 5.13.2 重建，并通过启动存活测试。
+
 ## v0.5.2 — WinUI 可用性与精简发布修复
 
 ### 界面
@@ -10,6 +43,7 @@
 - 模型页 JSON 传输改为代码页无关格式，中文名称与说明不再乱码。
 - Python 环境扫描完成后立即刷新“硬件与可用能力”，显示 PyTorch、CUDA 与 NVIDIA VFX 环境计数。
 - 启动及扫描失败时禁用 NV-VFX、RIFE PyTorch 与 CUDA 光流；仅在手动扫描确认对应环境后解锁。
+- 主题切换提升到窗口根视觉树，Mica 底层、导航区、页面和标题栏现在会同步切换明暗颜色。
 
 ### 发布
 

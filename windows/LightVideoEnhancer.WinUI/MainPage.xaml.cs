@@ -533,12 +533,20 @@ public sealed partial class MainPage : Page
         {
             return;
         }
-        RequestedTheme = item.Tag?.ToString() switch
+        ElementTheme theme = item.Tag?.ToString() switch
         {
             "light" => ElementTheme.Light,
             "dark" => ElementTheme.Dark,
             _ => ElementTheme.Default,
         };
+        if (Application.Current is App app && app.MainWindow is MainWindow window)
+        {
+            window.ApplyTheme(theme);
+        }
+        else
+        {
+            RequestedTheme = theme;
+        }
     }
 
     private async void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

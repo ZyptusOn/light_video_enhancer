@@ -147,6 +147,8 @@ def main() -> None:
     version = _project_version()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     hidden = [
+        PACKAGE_NAME + ".native_ncnn",
+        PACKAGE_NAME + ".executor", PACKAGE_NAME + ".ncnn_contract",
         PACKAGE_NAME + ".fused_rife_nvvfx",
         PACKAGE_NAME, PACKAGE_NAME + ".pipeline", PACKAGE_NAME + ".config",
         PACKAGE_NAME + ".cli", PACKAGE_NAME + ".capabilities",

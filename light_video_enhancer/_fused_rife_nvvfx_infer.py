@@ -92,7 +92,6 @@ def _process(args, model, effect, device, inputs, outputs, count, skip_first,
             output_index += 1
     return output_index
 
-
 def main() -> None:
     inputs = None
     outputs = None
@@ -107,7 +106,8 @@ def main() -> None:
         outputs = SharedNDArray.attach(args["shared_output"])
         device = torch.device("cuda")
         torch.set_grad_enabled(False)
-        torch.backends.cudnn.benchmark = True
+        # Algorithm search adds multi-second stalls for each batch shape.
+        torch.backends.cudnn.benchmark = False
         model = _load_rife(args["model_path"], device)
         effect = VideoSuperRes(quality=args["quality"])
         effect.output_width = args["dst_w"]

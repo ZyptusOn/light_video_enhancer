@@ -37,6 +37,8 @@ Thumbs.db
 !light_video_enhancer/ncnn/**/*.dll
 
 # Scratch files
+*.orig
+benchmarks/results/**/*.log
 tmp/
 temp/
 tmp_build/

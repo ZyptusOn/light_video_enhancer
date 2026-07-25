@@ -390,7 +390,7 @@
                             <TextBlock FontSize="24" FontWeight="SemiBold" Text="Light Video Enhancer" />
                             <TextBlock Style="{StaticResource CaptionStyle}"
                                        Text="WinUI 3 前端面向 Windows 10 1809 及以上系统；Windows 7 继续使用原有 Tk 前端。两个界面共享相同的 Python、C/C++、NCNN、CUDA 与 FFmpeg 处理核心。" />
-                            <TextBlock x:Name="VersionText" Text="版本 0.5.2 · WinUI 3" />
+                            <TextBlock x:Name="VersionText" Text="版本 0.6.0 · WinUI 3" />
                             <HyperlinkButton NavigateUri="https://github.com/ZyptusOn/light_video_enhancer"
                                              Content="打开 GitHub 仓库" />
                             <ComboBox x:Name="ThemeBox" Header="界面主题" SelectedIndex="0"

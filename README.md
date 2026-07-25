@@ -27,25 +27,28 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 开发与便携打包见 [`windows/README.md`](windows/README.md)，前后端边界和兼容策略见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
-### v0.5.2 WinUI 校验值
+### v0.6.0 发布包校验值
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `7C4ADB7044C68D5C4FC2CCDBC441BF4D80D9225538096897440E6A7F00A698A7` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `92DA25EA2CD2E4651DCE1867D27A04DC80288CDC613ADA0377D8A2838E597250` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `8C67F2E62DA558F2C1093B3686106332EBC8A4AF2089EA8F466F7905AF26AAD4` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `B47F1E15DC8B3F01B1F5537A15300016985A43F0BE2121C32CA1E4591B5C8ED2` |
+| `LightVideoEnhancer-Win7-x64.exe` | `7CBA3E6487DF039860CF9DDC47B2F6C12AFF170FFF920301E88991722CC958ED` |
 
-Windows 7 LTS 包未在本次 WinUI 修复版中重建，继续使用 v0.5.0 发行文件。
+三套发行文件均使用 v0.6.0 源码重建。Full 与 Lite 内的 WinUI 前端逐字节相同。
 
-## v0.5.2 亮点
+## v0.6.0 亮点
 
-- WinUI 前端改为自包含单文件发布；每个解压目录只保留前端与后端两个 EXE，不再铺开数百个 DLL 和无关语言目录。
-- 主窗口不再强制最大化，首页及其余页面使用居中的内容视口，编码区域移除多余的折叠子层级。
-- 通知条在没有有效标题和正文时彻底折叠，修复首页顶部空白提示条。
-- 后端 JSON 采用与控制台代码页无关的 ASCII 安全传输，修复模型下载页中文乱码。
-- 扫描 Python/PyTorch 后，
-- 外部后端定位兼容单文件自解压目录，并将 Python 标准流固定为 UTF-8。
+- 新增常驻原生 NCNN/Vulkan worker，通过 Windows 命名共享内存传帧，移除逐批进程启动与 PNG/磁盘中转。
+- RIFE NCNN + Real-CUGAN 实测提升 3.32×，RIFE NCNN + Real-ESRGAN AnimeVideo-v3 提升 4.42×。
+- 新增统一批执行器与不可变 NCNN 阶段契约，使 WinUI、Win7 Tk 与 CLI 继续共享同一后端。
+- Real-ESRGAN 2×/3× 档位使用原生倍率模型；原生 worker 修复 BGR/RGB 色彩约定并保留自动回退。
+- RIFE PyTorch / NV-VFX 路径减少重复 cuDNN 搜索，完整基线视频的处理阶段吞吐提高 28.5%。
+- 修复 WinUI 切换到明亮模式后 Mica 和窗口底层仍为黑色的问题。
+- Full、Lite 与 Win7 LTS 三套包全部按 v0.6.0 重建。
 
-完整变化见 [CHANGELOG.md](CHANGELOG.md)。
+完整变化和发布说明见 [CHANGELOG.md](CHANGELOG.md) 与
+[`docs/RELEASE_NOTES_v0.6.0.md`](docs/RELEASE_NOTES_v0.6.0.md)。
 
 ## 处理流水线
 
@@ -83,7 +86,7 @@ Real-ESRGAN 质量档位：
 | 档位 | 模型 / 行为 |
 |---|---|
 | `fast` | AnimeVideo-v3 2×/3×/4×，按目标倍率选择原生模型。 |
-| `balanced` | x4plus-anime，模型输出后按目标尺寸缩放。 |
+| `balanced` | 2×/3× 使用 AnimeVideo-v3 原生倍率；4× 使用 x4plus-anime。 |
 | `quality` | 通用 x4plus。 |
 | `ultra` | 通用 x4plus + TTA，最慢且显存占用最高。 |
 
@@ -199,22 +202,25 @@ lve input.mp4 --fi-engine rife --torch-python C:\path\to\python.exe -o output.mp
 
 ## 性能说明
 
-`rife_ncnn -> NCNN 超分` 的旧实现会把 RIFE 输出读回 Python，再写回磁盘交给超分进程。v0.4.5 改为目录直连，并增加动态批量、动态编码队列和异步临时目录清理。
+兼容的 `RIFE NCNN -> NCNN 超分` 组合会自动切换到常驻原生 Vulkan worker。模型和
+Vulkan 管线只加载一次，视频帧通过 Windows 命名共享内存传输，不再为每批帧启动
+RIFE/SR CLI 或编解码 PNG。初始化失败会在处理开始前自动回退到目录三级流水；
+`LVE_DISABLE_FUSED_NCNN=1` 可强制使用旧路径。
 
-本机 720p、33 帧合成基准：
+`YUKI_Z.mp4` 的 2 秒真实片段、720p→1440p、2× 插帧、HEVC NVENC 实测：
 
-| 路径 | 耗时 |
-|---|---:|
-| 旧的 Python 中间帧路径 | 22.256 秒 |
-| v0.4.5 NCNN 目录直连 | 15.425 秒 |
+| 管线 | 常驻 worker 输入 fps | 旧 CLI/PNG 输入 fps | 加速 |
+|---|---:|---:|---:|
+| RIFE NCNN + Real-CUGAN | 4.99 | 1.50 | **3.32×** |
+| RIFE NCNN + Real-ESRGAN AnimeVideo-v3 | **8.18** | 1.85 | **4.42×** |
+| RIFE NCNN + ESRGAN classic | 0.33 | 0.14 | **2.33×** |
 
-该测试提升约 `1.443×`，总耗时减少约 `30.7%`。实际收益取决于分辨率、模型、磁盘、GPU 和编码器。任务管理器中仍可能看到周期性 GPU 波峰，因为 RIFE、超分和编码属于不同阶段；优化目标是缩短波峰之间的 CPU/磁盘空档，而不是让所有 GPU 引擎同时运行。
+同机 RIFE PyTorch + NV-VFX 基线为 8.01 输入 fps。Real-ESRGAN 的便携 NCNN
+链路已达到同级吞吐量。经典 ESRGAN 固定执行 4× 模型，在 2× 目标下仍需生成
+5120×2880 中间结果，因此不适合作为自动 2× 默认项。
 
-可复现实验：
-
-```powershell
-python benchmarks/benchmark_ncnn_chain.py --width 1280 --height 720 --frames 33 --scale 2 --gpu 0
-```
+完整方法、GPU/CPU/显存采样、正确性对照和架构说明见
+[`benchmarks/NCNN_REFACTOR_REPORT.md`](benchmarks/NCNN_REFACTOR_REPORT.md)。
 
 ## 构建与测试
 

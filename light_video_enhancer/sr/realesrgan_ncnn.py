@@ -9,9 +9,11 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from light_video_enhancer._image_batch import (
-    make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
+    make_directory, ncnn_jobs, ncnn_tile, read_frames, validate_outputs,
+    write_frames)
 from light_video_enhancer._logging import get_logger
 from light_video_enhancer._paths import get_model_dir, get_pkg_dir
+from light_video_enhancer.ncnn_contract import NcnnSuperResolutionStage
 from light_video_enhancer.sr.base import SuperResolutionEngine
 
 _log = get_logger(__name__)
@@ -48,6 +50,14 @@ class _NcnnESRGANBase(SuperResolutionEngine):
         return "%s ncnn (%s, %s)" % (family, self._quality, target)
 
     @property
+    def supports_batch(self) -> bool:
+        return True
+
+    @property
+    def supports_directory_batch(self) -> bool:
+        return True
+
+    @property
     def batch_output_pixels(self) -> int:
         return ((self._src_w * self._native_scale) *
                 (self._src_h * self._native_scale))
@@ -61,6 +71,8 @@ class _NcnnESRGANBase(SuperResolutionEngine):
         if self._classic:
             return "esrgan-x4", 4
         if self._quality == "balanced":
+            if self._target_scale < 4:
+                return "realesr-animevideov3", self._target_scale
             return "realesrgan-x4plus-anime", 4
         if self._quality in {"quality", "ultra"}:
             return "realesrgan-x4plus", 4
@@ -119,9 +131,13 @@ class _NcnnESRGANBase(SuperResolutionEngine):
             "-s", str(self._native_scale),
             "-m", self._models_dir.replace("\\", "/"),
             "-n", self._model_name,
-            "-j", ncnn_jobs(self._src_w, self._src_h, native_w, native_h),
+            "-j", ncnn_jobs(self._src_w, self._src_h, native_w, native_h,
+                            engine="realesrgan"),
             "-f", "png",
         ]
+        tile = ncnn_tile("realesrgan")
+        if tile:
+            command.extend(["-t", str(tile)])
         if self._quality == "ultra":
             command.append("-x")
         if self._gpu_id is not None:
@@ -138,6 +154,16 @@ class _NcnnESRGANBase(SuperResolutionEngine):
                                (self.name, error or result.returncode))
         validate_outputs(output_dir, input_count, self.name)
         return input_count
+
+    def native_ncnn_stage(self) -> NcnnSuperResolutionStage:
+        param_path, model_path = self._model_files()
+        return NcnnSuperResolutionStage(
+            kind="esrgan" if self._classic else "realesrgan",
+            param_path=param_path,
+            model_path=model_path,
+            scale=self._native_scale,
+            tta=self._quality == "ultra",
+            tile=ncnn_tile("realesrgan") or 0)
 
     def release(self) -> None:
         pass

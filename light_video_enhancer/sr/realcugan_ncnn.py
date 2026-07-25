@@ -9,9 +9,11 @@ from typing import List, Optional
 import numpy as np
 
 from light_video_enhancer._image_batch import (
-    make_directory, ncnn_jobs, read_frames, validate_outputs, write_frames)
+    make_directory, ncnn_jobs, ncnn_tile, read_frames, validate_outputs,
+    write_frames)
 from light_video_enhancer._logging import get_logger
 from light_video_enhancer._paths import get_model_dir, get_pkg_dir
+from light_video_enhancer.ncnn_contract import NcnnSuperResolutionStage
 from light_video_enhancer.sr.base import SuperResolutionEngine
 
 _log = get_logger(__name__)
@@ -41,6 +43,14 @@ class RealCUGANEngine(SuperResolutionEngine):
             "CPU" if self._gpu_id < 0 else "GPU %d" % self._gpu_id)
         return "Real-CUGAN ncnn (%dx, %s, %s)" % (
             self._scale, self._quality, target)
+
+    @property
+    def supports_batch(self) -> bool:
+        return True
+
+    @property
+    def supports_directory_batch(self) -> bool:
+        return True
 
     @property
     def batch_output_pixels(self) -> int:
@@ -104,8 +114,12 @@ class RealCUGANEngine(SuperResolutionEngine):
             "-m", self._models.replace("\\", "/"),
             "-j", ncnn_jobs(self._src_w, self._src_h,
                             self._src_w * self._scale,
-                            self._src_h * self._scale), "-f", "png",
+                            self._src_h * self._scale, engine="realcugan"),
+            "-f", "png",
         ]
+        tile = ncnn_tile("realcugan")
+        if tile:
+            command.extend(["-t", str(tile)])
         if tta:
             command.append("-x")
         if self._gpu_id is not None:
@@ -121,6 +135,19 @@ class RealCUGANEngine(SuperResolutionEngine):
                                (error or result.returncode))
         validate_outputs(output_dir, input_count, "Real-CUGAN")
         return input_count
+
+    def native_ncnn_stage(self) -> NcnnSuperResolutionStage:
+        noise, tta, model_kind = self._QUALITY[self._quality]
+        stem = "up%dx-%s" % (self._scale, model_kind)
+        return NcnnSuperResolutionStage(
+            kind="realcugan",
+            param_path=os.path.join(self._models, stem + ".param"),
+            model_path=os.path.join(self._models, stem + ".bin"),
+            scale=self._scale,
+            tta=tta,
+            noise=noise,
+            syncgap=3,
+            tile=ncnn_tile("realcugan") or 0)
 
     def release(self) -> None:
         pass
