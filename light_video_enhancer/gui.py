@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Dict, Optional
 
+from . import __version__
 from ._logging import set_gui_handler
 from .capabilities import quick_capabilities
 from .cli import _auto_output
@@ -34,6 +35,9 @@ class LVEGUI(tk.Tk):
         "自动选择（推荐）": "auto",
         "D3D11 视频处理 / 驱动 VSR": "dxva_vsr",
         "NVIDIA Video Effects VSR（CUDA）": "nvvfx",
+        "SPAN ncnn-vulkan（轻量）": "span",
+        "FlashVSR v1.1（实验，Win10/11）": "flashvsr",
+        "SeedVR2 3B FP8（重型修复，Win10/11）": "seedvr2",
         "Real-CUGAN ncnn-vulkan": "realcugan",
         "Real-ESRGAN ncnn-vulkan": "realesrgan",
         "ESRGAN ncnn-vulkan（经典模型）": "esrgan",
@@ -44,7 +48,9 @@ class LVEGUI(tk.Tk):
     FI_LABELS = {
         "自动选择（推荐）": "auto",
         "RIFE AI（PyTorch，按需检测）": "rife",
+        "EMA-VFI Small（PyTorch CUDA）": "ema_vfi",
         "RIFE ncnn-vulkan（便携批处理）": "rife_ncnn",
+        "IFRNet ncnn-vulkan（轻量）": "ifrnet_ncnn",
         "DIS 稠密光流": "dis",
         "Farneback 光流": "optical_flow",
         "CUDA 块匹配光流": "torch_flow",
@@ -55,7 +61,7 @@ class LVEGUI(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("Light Video Enhancer 0.6.0")
+        self.title("Light Video Enhancer %s" % __version__)
         self.geometry("900x760")
         self.minsize(780, 650)
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -67,6 +73,8 @@ class LVEGUI(tk.Tk):
         self._running = False
         self._enhancer: Optional[VideoEnhancer] = None
         self._torch_python: Optional[str] = None
+        self._flashvsr_python: Optional[str] = None
+        self._seedvr2_python: Optional[str] = None
         self._probe_generation = 0
         self._last_output = ""
 
@@ -254,6 +262,12 @@ class LVEGUI(tk.Tk):
             sr.append("D3D11 视频处理 / 驱动 VSR")
         if caps.get("nvvfx_current") or self._torch_python:
             sr.append("NVIDIA Video Effects VSR（CUDA）")
+        if caps.get("ncnn_span"):
+            sr.append("SPAN ncnn-vulkan（轻量）")
+        if caps.get("flashvsr_model") and self._flashvsr_python:
+            sr.append("FlashVSR v1.1（实验，Win10/11）")
+        if caps.get("seedvr2_model") and self._seedvr2_python:
+            sr.append("SeedVR2 3B FP8（重型修复，Win10/11）")
         if caps.get("ncnn_cugan"):
             sr.append("Real-CUGAN ncnn-vulkan")
         if caps.get("ncnn_esrgan"):
@@ -264,8 +278,12 @@ class LVEGUI(tk.Tk):
         fi = ["自动选择（推荐）"]
         if caps.get("rife_model"):
             fi.append("RIFE AI（PyTorch，按需检测）")
+        if caps.get("ema_vfi_model") and caps.get("torch_cuda"):
+            fi.append("EMA-VFI Small（PyTorch CUDA）")
         if caps.get("ncnn_rife"):
             fi.append("RIFE ncnn-vulkan（便携批处理）")
+        if caps.get("ncnn_ifrnet"):
+            fi.append("IFRNet ncnn-vulkan（轻量）")
         try:
             import cv2
             if hasattr(cv2, "DISOpticalFlow_create"):
@@ -292,8 +310,13 @@ class LVEGUI(tk.Tk):
         rows = [
             ("FFmpeg Worker", "worker", "内嵌解码、编码与音频复制"),
             ("D3D11 VSR Bridge", "vsr_dll", "NVIDIA / Intel 驱动增强；AMD 为视频处理缩放"),
+            ("EMA-VFI Small", "ema_vfi_model", "CUDA 任意时刻插帧权重"),
             ("RIFE 模型", "rife_model", "PyTorch 插帧权重"),
             ("RIFE ncnn", "ncnn_rife", "跨厂商 Vulkan，分块批处理"),
+            ("IFRNet ncnn", "ncnn_ifrnet", "轻量跨厂商 Vulkan，常驻 Worker"),
+            ("SPAN ncnn", "ncnn_span", "轻量 Vulkan 超分"),
+            ("FlashVSR v1.1", "flashvsr_model", "Win10/11 可选扩散视频超分权重"),
+            ("SeedVR2 3B FP8", "seedvr2_model", "Win10/11 重型视频修复权重"),
             ("Real-CUGAN ncnn", "ncnn_cugan", "跨厂商 Vulkan 超分"),
             ("Real-ESRGAN ncnn", "ncnn_esrgan", "AnimeVideo-v3 / x4plus"),
             ("ESRGAN classic ncnn", "ncnn_classic_esrgan", "原始 ESRGAN x4 感知模型"),
@@ -329,11 +352,17 @@ class LVEGUI(tk.Tk):
         for item in self._env_tree.get_children():
             self._env_tree.delete(item)
         self._torch_python = None
+        self._flashvsr_python = None
+        self._seedvr2_python = None
         current = os.path.normcase(os.path.abspath(os.sys.executable))
         for info in environments:
             exe = info.get("exe", "")
             if info.get("cuda") and self._torch_python is None and os.path.normcase(exe) != current:
                 self._torch_python = exe
+            if info.get("flashvsr") and self._flashvsr_python is None:
+                self._flashvsr_python = exe
+            if info.get("seedvr2") and self._seedvr2_python is None:
+                self._seedvr2_python = exe
             self._env_tree.insert("", "end", text=exe, values=(
                 info.get("version", "?"), info.get("torch_version") or "--",
                 info.get("gpu_name") if info.get("cuda") else "--",
@@ -341,6 +370,8 @@ class LVEGUI(tk.Tk):
         current_cuda = any(info.get("cuda") and os.path.normcase(info.get("exe", "")) == current
                            for info in environments)
         self._caps["torch_cuda"] = current_cuda or bool(self._torch_python)
+        self._caps["flashvsr_env"] = bool(self._flashvsr_python)
+        self._caps["seedvr2_env"] = bool(self._seedvr2_python)
         self._refresh_engine_lists()
         self._scan_button.configure(state="normal")
         self._set_status("环境扫描完成：%d 个 Python，%d 个 CUDA PyTorch" % (
@@ -385,6 +416,9 @@ class LVEGUI(tk.Tk):
         fi = self.FI_LABELS.get(self._fi_var.get(), "auto")
         sr_values = {
             "nvvfx": ("fast", "balanced", "quality", "ultra"),
+            "span": ("fast", "balanced", "quality", "ultra"),
+            "flashvsr": ("fast", "balanced", "quality", "ultra"),
+            "seedvr2": ("fast", "balanced", "quality", "ultra"),
             "realcugan": ("fast", "balanced", "quality", "ultra"),
             "realesrgan": ("fast", "balanced", "quality", "ultra"),
             "esrgan": ("quality", "ultra"),
@@ -398,7 +432,7 @@ class LVEGUI(tk.Tk):
             self._sr_quality_combo.configure(state="disabled")
             self._sr_quality_label.configure(state="disabled")
         fi_values = ("ultra", "fast", "balanced", "quality") if fi in {
-            "dis", "optical_flow", "torch_flow"} else None
+            "ema_vfi", "dis", "optical_flow", "torch_flow"} else None
         if fi_values:
             self._fi_quality_combo.configure(state="readonly", values=fi_values)
             self._fi_quality_label.configure(state="normal")
@@ -442,6 +476,10 @@ class LVEGUI(tk.Tk):
             codec=self._codec_var.get(), preset=self._preset_var.get().strip(),
             crf=self._crf_var.get(), container=self._container_var.get(),
             copy_audio=self._audio_var.get(), overwrite=self._overwrite_var.get())
+        torch_python = (
+            self._flashvsr_python if sr == "flashvsr" else
+            self._seedvr2_python if sr == "seedvr2" else
+            self._torch_python)
         config = ProcessConfig(
             input_path=input_path, output_path=output, scale=self._scale_var.get(),
             sr_engine=sr, fi_engine=fi, fi_multiplier=self._multiplier_var.get(),
@@ -449,7 +487,7 @@ class LVEGUI(tk.Tk):
             fi_quality=self._fi_quality_var.get(), encode=encode,
             start_time=self._optional_float(self._start_var.get(), "开始时间"),
             duration=self._optional_float(self._duration_var.get(), "时长"),
-            device="auto", torch_python=self._torch_python,
+            device="auto", torch_python=torch_python,
             sr_first=self._sr_first_var.get(), ncnn_gpu=ncnn_gpu)
         config.validate()
         return config

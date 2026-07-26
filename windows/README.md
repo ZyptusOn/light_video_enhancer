@@ -55,7 +55,7 @@ WinUI 启动时不会自动扫描外部 Python。扫描前会禁用 NVIDIA Video
 
 ## 体积与部署取舍
 
-v0.6.0 当前构建中，自包含 WinUI 前端约 85.6 MiB，包含原生 NCNN worker 的 Lite 后端约 86.5 MiB。自包含模式无需目标电脑预装 .NET 或 Windows App SDK，也是保持双 EXE 便携目录的原因。
+v0.7.0 当前构建中，自包含 WinUI 前端约 85.6 MiB，Lite 后端约 96.9 MiB，内置 10 个标准模型包的 Full 后端约 333.4 MiB。自包含模式无需目标电脑预装 .NET 或 Windows App SDK，也是保持双 EXE 便携目录的原因。
 
 框架依赖试验构建的前端约 38.6 MiB，但要求用户另外安装 .NET 10 与 Windows App SDK 1.8，且不支持 WinUI 单文件发布。若以后发行 MSIX，可把它作为安装版选项，而不应替换当前便携包。
 
@@ -69,7 +69,7 @@ v0.6.0 当前构建中，自包含 WinUI 前端约 85.6 MiB，包含原生 NCNN 
 python tools\build_model_packs.py
 ```
 
-会在 `dist\model-packs` 生成 7 个可下载 ZIP，并更新 `light_video_enhancer\model_manifest.json` 的归档及逐文件 SHA-256。将这些 ZIP 上传到 GitHub Release `models-v1` 后，GUI 的 GitHub/镜像源即可直接下载；也可随时使用自定义基础 URL、含 `{archive}` 的模板或本地 ZIP 导入。
+会在 `dist\model-packs` 生成 10 个标准模型 ZIP，并更新 `light_video_enhancer\model_manifest.json` 的归档及逐文件 SHA-256；FlashVSR 与 SeedVR2 的多 GiB 权重继续由固定版本的远程清单按需下载。将标准 ZIP 上传到 GitHub Release `models-v1` 后，GUI 的 GitHub/镜像源即可直接下载；也可随时使用自定义基础 URL、含 `{archive}` 的模板或本地 ZIP 导入。
 
 ## 进程协议
 

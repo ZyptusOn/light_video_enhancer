@@ -6,6 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class NcnnInterpolationStage:
     model_dir: str
+    kind: str = "rife"
     tta: bool = False
     uhd: bool = False
 

@@ -35,14 +35,19 @@ foreach(LINE IN LISTS NCNN_LAYER_LINES)
     set(WITH_LAYER_${LAYER_NAME} OFF CACHE BOOL "" FORCE)
 endforeach()
 set(LVE_REQUIRED_NCNN_LAYERS
-    concat convolution crop deconvolution eltwise flatten innerproduct input
+    bias concat convolution crop deconvolution eltwise flatten innerproduct input
     pooling prelu reduction relu scale sigmoid slice split binaryop unaryop
-    padding interp packing cast pixelshuffle clip gemm)
+    padding interp packing cast pixelshuffle clip gemm memorydata swish reshape)
 foreach(LAYER_NAME IN LISTS LVE_REQUIRED_NCNN_LAYERS)
     set(WITH_LAYER_${LAYER_NAME} ON CACHE BOOL "" FORCE)
 endforeach()
 
 add_subdirectory("${NCNN_SOURCE_DIR}" ncnn)
+# The generated layer registry changes as model families are added. Mark it
+# explicit because localized MSVC /showIncludes output can leave a stale
+# layer.cpp object in an incremental Ninja build.
+set_property(SOURCE "${NCNN_SOURCE_DIR}/src/layer.cpp" DIRECTORY "${NCNN_SOURCE_DIR}"
+    APPEND PROPERTY OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ncnn/src/layer_registry.h")
 
 function(embed_shader SHADER)
     get_filename_component(SHADER_NAME "${SHADER}" NAME_WE)
@@ -64,7 +69,9 @@ file(GLOB CUGAN_SHADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/upstream/realcugan/*.comp")
 file(GLOB ESRGAN_SHADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/upstream/realesrgan/*.comp")
-foreach(SHADER IN LISTS RIFE_SHADERS CUGAN_SHADERS ESRGAN_SHADERS)
+file(GLOB IFRNET_SHADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/upstream/ifrnet/*.comp")
+foreach(SHADER IN LISTS RIFE_SHADERS CUGAN_SHADERS ESRGAN_SHADERS IFRNET_SHADERS)
     embed_shader("${SHADER}")
 endforeach()
 get_property(LVE_SHADER_HEADERS GLOBAL PROPERTY LVE_SHADER_HEADERS)
@@ -76,12 +83,16 @@ add_executable(lve-ncnn-worker
     upstream/rife/warp.cpp
     upstream/realcugan/realcugan.cpp
     upstream/realesrgan/realesrgan.cpp
+    upstream/ifrnet/ifrnet.cpp
+    upstream/ifrnet/warp.cpp
+    span.cpp
     ${LVE_SHADER_HEADERS})
 add_dependencies(lve-ncnn-worker lve_ncnn_shaders)
 
 target_include_directories(lve-ncnn-worker PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/upstream/rife"
+    "${CMAKE_CURRENT_SOURCE_DIR}/upstream/ifrnet"
     "${CMAKE_CURRENT_SOURCE_DIR}/upstream/realcugan"
     "${CMAKE_CURRENT_SOURCE_DIR}/upstream/realesrgan")
 target_link_libraries(lve-ncnn-worker PRIVATE ncnn)

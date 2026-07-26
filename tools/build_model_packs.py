@@ -34,6 +34,18 @@ def main() -> None:
     manifest = {"protocol_version": MODEL_PROTOCOL_VERSION, "packs": {}}
 
     for pack in MODEL_PACKS:
+        if pack.get("downloads"):
+            download_size = int(pack.get("remote_download_size", 0))
+            manifest["packs"][pack["id"]] = {
+                "archive": pack["archive"],
+                "archive_size": download_size,
+                "installed_size": 0,
+                "sha256": "",
+                "files": dict(pack.get("remote_hashes", {})),
+            }
+            print("%s: remote %.1f MiB" % (
+                pack["id"], download_size / 1048576))
+            continue
         archive = output / pack["archive"]
         file_hashes = {}
         installed_size = 0

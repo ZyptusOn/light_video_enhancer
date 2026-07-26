@@ -13,11 +13,11 @@ Light Video Enhancer 是一款面向 Windows 的视频超分、插帧与转码�
 
 | 系统 | 文件 | 模型权重 | 说明 |
 |---|---|---|---|
-| Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 全部内置 | 解压即用；所有模型在“模型与下载”页显示为已内置。 |
+| Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 标准模型内置 | 解压即用；FlashVSR / SeedVR2 因体积和环境要求仍按需下载。 |
 | Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 按需下载 | 推荐给带宽和磁盘有限的用户；可切换 GitHub、代理镜像、自定义源或导入本地 ZIP。 |
 | Windows 7 SP1 x64 | `LightVideoEnhancer-Win7-x64.exe` | 全部内置 | Python 3.8.10 / Tk 的冻结兼容版，不提供下载页。 |
 
-两个 WinUI 包使用完全相同的 GUI 与后端协议；区别只在后端是否嵌入权重。下载的模型保存在 `%LOCALAPPDATA%\LightVideoEnhancer\models`，升级或替换程序目录不会删除。两版都内置 FFmpeg Worker 和 NCNN 执行器，不需要系统 FFmpeg。
+两个 WinUI 包使用完全相同的 GUI 与后端协议；区别只在后端是否嵌入标准权重。下载的模型保存在 `%LOCALAPPDATA%\LightVideoEnhancer\models`，升级或替换程序目录不会删除。两版都内置 FFmpeg Worker 和 NCNN 执行器，不需要系统 FFmpeg。FlashVSR（约 6.5 GiB）和 SeedVR2（约 3.6 GiB）属于 Win10/11 可选重型模型，为避免把 Full 包扩大到十余 GiB，两种包都通过模型页按需下载并校验单文件 SHA-256。
 
 ### WinUI 3 现代前端
 
@@ -27,28 +27,28 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 开发与便携打包见 [`windows/README.md`](windows/README.md)，前后端边界和兼容策略见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
-### v0.6.0 发布包校验值
+### v0.7.0 发布包校验值
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `8C67F2E62DA558F2C1093B3686106332EBC8A4AF2089EA8F466F7905AF26AAD4` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `B47F1E15DC8B3F01B1F5537A15300016985A43F0BE2121C32CA1E4591B5C8ED2` |
-| `LightVideoEnhancer-Win7-x64.exe` | `7CBA3E6487DF039860CF9DDC47B2F6C12AFF170FFF920301E88991722CC958ED` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `26833CC5A6280824123928AB57811861DE861478627DF609BDB17997B93835B0` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `45FA39ACAD453BEC27B1347EEFF9C6E858F10EEFC60DF7A38BAD2840DC1CD025` |
+| `LightVideoEnhancer-Win7-x64.exe` | `AF8D040BF899B0F14235796104187F5D707580C977E322C5D9FE9830D9CBA842` |
 
-三套发行文件均使用 v0.6.0 源码重建。Full 与 Lite 内的 WinUI 前端逐字节相同。
+三套发行文件均使用 v0.7.0 源码重建。Full 与 Lite 内的 WinUI 前端逐字节相同。
 
-## v0.6.0 亮点
+## v0.7.0 亮点
 
-- 新增常驻原生 NCNN/Vulkan worker，通过 Windows 命名共享内存传帧，移除逐批进程启动与 PNG/磁盘中转。
-- RIFE NCNN + Real-CUGAN 实测提升 3.32×，RIFE NCNN + Real-ESRGAN AnimeVideo-v3 提升 4.42×。
-- 新增统一批执行器与不可变 NCNN 阶段契约，使 WinUI、Win7 Tk 与 CLI 继续共享同一后端。
-- Real-ESRGAN 2×/3× 档位使用原生倍率模型；原生 worker 修复 BGR/RGB 色彩约定并保留自动回退。
-- RIFE PyTorch / NV-VFX 路径减少重复 cuDNN 搜索，完整基线视频的处理阶段吞吐提高 28.5%。
-- 修复 WinUI 切换到明亮模式后 Mica 和窗口底层仍为黑色的问题。
-- Full、Lite 与 Win7 LTS 三套包全部按 v0.6.0 重建。
+- 新增 IFRNet S/Base/L NCNN 插帧、SPAN NCNN 超分与 EMA-VFI Small CUDA 插帧。
+- 可按需安装 FlashVSR v1.1 和 SeedVR2 3B FP8；重型算法不会自动选择或进入标准发行包。
+- 自动选择器会综合真实输入尺寸、目标分辨率、质量、阶段顺序、实测吞吐、已安装模型和显式扫描到的运行环境。
+- 编码器自动选择只使用后端实际报告的 NVENC、AMF、Media Foundation、x264/x265 与 AV1 编码器。
+- 新增三种标准模型下载包；Full 内置 10 个标准包，Lite 通过同一 WinUI 下载页按需安装。
+- Real-ESRGAN 2×/3× 使用原生倍率模型；修复 SPAN 的输出量程、BGR/RGB 顺序和黑帧问题。
+- Full、Lite 与 Win7 LTS 三套包全部按 v0.7.0 重建并验证。
 
 完整变化和发布说明见 [CHANGELOG.md](CHANGELOG.md) 与
-[`docs/RELEASE_NOTES_v0.6.0.md`](docs/RELEASE_NOTES_v0.6.0.md)。
+[`docs/RELEASE_NOTES_v0.7.0.md`](docs/RELEASE_NOTES_v0.7.0.md)。
 
 ## 处理流水线
 
@@ -57,9 +57,9 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
    │
    ├─ 内嵌 FFmpeg 解码：CUDA / D3D11VA / dav1d / 软件回退
    │
-   ├─ 插帧：RIFE PyTorch / RIFE NCNN / DIS / Farneback / CUDA 光流 / Blend
+   ├─ 插帧：RIFE / EMA-VFI / RIFE NCNN / IFRNet NCNN / DIS / Farneback / CUDA 光流 / Blend
    │
-   ├─ 超分：驱动 VSR / NV-VFX / Real-CUGAN / Real-ESRGAN / ESRGAN / Lanczos
+   ├─ 超分：驱动 VSR / NV-VFX / SPAN / Real-CUGAN / Real-ESRGAN / ESRGAN / FlashVSR / SeedVR2 / Lanczos
    │
    └─ 编码：NVENC / AMF / Media Foundation / x264 / x265 / SVT-AV1 / libaom
           └─ 可复制原视频音频，失败时保留同格式优先的自动回退
@@ -75,9 +75,12 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 |---|---|---|
 | 驱动 VSR / `dxva_vsr` | D3D11，NVIDIA / Intel / AMD | 模拟播放器 Video Processor 路径；速度快，增强效果取决于显卡和驱动。 |
 | NVIDIA Video Effects / `nvvfx` | NVIDIA CUDA | NVIDIA SDK AI 超分；支持隔离进程、超时保护和融合 CUDA 管线。 |
+| SPAN / `span` | Vulkan | 轻量 2×/4× 超分；48/52 通道模型可按质量选择，支持 NVIDIA、AMD 与 Intel。 |
 | Real-CUGAN / `realcugan` | Vulkan | 动漫、线稿和压缩视频；2×/3×/4× NCNN 批处理。 |
 | Real-ESRGAN / `realesrgan` | Vulkan | 通用或动漫视频；提供轻量视频模型和 x4plus 系列。 |
 | ESRGAN classic / `esrgan` | Vulkan | 原始 ESRGAN x4 感知模型，偏锐利和纹理增强。 |
+| FlashVSR / `flashvsr` | PyTorch CUDA，Win10/11 | 实验性 4× 因果扩散视频超分；固定 29 帧窗口，需要 Python 3.11 和约 6.5 GiB 权重。 |
+| SeedVR2 / `seedvr2` | PyTorch CUDA，Win10/11 | 重型视频修复；3B FP8 + VAE，支持分块 VAE、CPU 卸载与模型交换，不参与自动选择。 |
 | Lanczos / `lanczos` | CPU | 稳定、清晰的传统缩放回退。 |
 | Bicubic / `bicubic` | CPU | 平滑的传统缩放回退。 |
 
@@ -87,21 +90,23 @@ Real-ESRGAN 质量档位：
 |---|---|
 | `fast` | AnimeVideo-v3 2×/3×/4×，按目标倍率选择原生模型。 |
 | `balanced` | 2×/3× 使用 AnimeVideo-v3 原生倍率；4× 使用 x4plus-anime。 |
-| `quality` | 通用 x4plus。 |
-| `ultra` | 通用 x4plus + TTA，最慢且显存占用最高。 |
+| `quality` | 2×/3× 使用 AnimeVideo-v3 原生倍率；4× 使用通用 x4plus。 |
+| `ultra` | 通用 x4plus + TTA；2×/3× 也会先做 4× 超采样，最慢且显存占用最高。 |
 
 ### 帧插值
 
 | GUI / CLI | 设备 | 说明 |
 |---|---|---|
 | RIFE / `rife` | PyTorch CUDA/CPU | 质量优先；持久子进程、共享内存和静帧/切镜检测。 |
+| EMA-VFI Small / `ema_vfi` | PyTorch CUDA | 高效任意时刻插帧；2×–4× 复用相邻帧特征，持久隔离进程。 |
 | RIFE NCNN / `rife_ncnn` | Vulkan | 不依赖 PyTorch，目录批处理，适合便携发布。 |
+| IFRNet NCNN / `ifrnet_ncnn` | Vulkan | 轻量跨厂商插帧；`fast` / `balanced` / `quality` 对应 S / Base / L 模型。 |
 | DIS / `dis` | CPU / OpenCV | 推荐的非 AI 通用方案，速度和运动补偿较均衡。 |
 | Farneback / `optical_flow` | CPU / OpenCV | 经典稠密光流。 |
 | CUDA 光流 / `torch_flow` | PyTorch CUDA | 轻量块匹配光流。 |
 | 帧混合 / `blend` | CPU | 最快、最兼容，不进行运动估计。 |
 
-“插帧质量”只在后端确实暴露可调策略时启用；RIFE 模型、RIFE NCNN 和帧混合使用固定或自动策略时，GUI 会禁用该控件。
+“插帧质量”只在后端确实暴露可调策略时启用。IFRNet、EMA-VFI 与光流后端会映射到各自模型或精度策略；RIFE PyTorch、RIFE NCNN 和帧混合使用固定或自动策略时，GUI 会禁用该控件。
 
 ### 编码
 
@@ -138,8 +143,9 @@ Real-ESRGAN 质量档位：
 推荐组合：
 
 - NVIDIA 高质量：`RIFE PyTorch -> NVIDIA Video Effects -> HEVC/AV1 NVENC`
-- 跨厂商便携：`RIFE NCNN -> Real-CUGAN/Real-ESRGAN -> 软件或硬件编码`
+- 跨厂商便携：`IFRNet/RIFE NCNN -> SPAN/Real-CUGAN/Real-ESRGAN -> 软件或硬件编码`
 - 低依赖稳定：`DIS -> Lanczos -> H.264 Media Foundation/x264`
+- 重型修复：手动选择 `FlashVSR` 或 `SeedVR2`，不建议与插帧同时启用。
 
 ### 从源码运行
 
@@ -190,7 +196,7 @@ lve --help
 
 ## 外部 PyTorch / NVIDIA VFX 环境
 
-单文件 EXE 不捆绑 PyTorch。RIFE PyTorch、CUDA 光流和 NV-VFX 会按需使用外部 Python 环境。GUI 启动时只做快速文件检查；在“环境与后端”页点击扫描后，程序会并行检查 PATH、Python Launcher、注册表、Conda、uv、pyenv 和 Poetry 等常见位置，并缓存结果。
+单文件 EXE 不捆绑 PyTorch。RIFE、EMA-VFI、CUDA 光流、NV-VFX、FlashVSR 和 SeedVR2 会按需使用外部 Python 环境。GUI 启动时不扫描外部 Python；在“环境与后端”页手动扫描后，程序会并行检查 PATH、Python Launcher、注册表、Conda、uv、pyenv 和 Poetry 等常见位置并缓存结果，未确认的 PyTorch / CUDA / NV-VFX 后端不会出现在可选列表中。
 
 如果机器有多个环境，可以在 GUI 中明确选择，也可以在 CLI 中指定：
 
@@ -219,7 +225,12 @@ RIFE/SR CLI 或编解码 PNG。初始化失败会在处理开始前自动回退�
 链路已达到同级吞吐量。经典 ESRGAN 固定执行 4× 模型，在 2× 目标下仍需生成
 5120×2880 中间结果，因此不适合作为自动 2× 默认项。
 
-完整方法、GPU/CPU/显存采样、正确性对照和架构说明见
+v0.7.0 的 2 秒片段测试中，IFRNet S 单独插帧达到 16.23 输入 fps；SPAN x2 ch48
+单独超分为 4.65 输入 fps，IFRNet S + SPAN x2 ch48 为 3.10 输入 fps。自动选择器
+因此会结合分辨率、质量、阶段顺序、模型可用性和实测吞吐评分，而不是固定选择最新模型。
+
+新算法数据见 [`benchmarks/NEW_ALGORITHMS_REPORT.md`](benchmarks/NEW_ALGORITHMS_REPORT.md)；
+常驻 worker 的完整方法、GPU/CPU/显存采样、正确性对照和架构说明见
 [`benchmarks/NCNN_REFACTOR_REPORT.md`](benchmarks/NCNN_REFACTOR_REPORT.md)。
 
 ## 构建与测试
@@ -287,7 +298,8 @@ backend_launcher.py         WinUI 独立处理后端入口
 ## 已知限制
 
 - 驱动 VSR 的增强效果由显卡、驱动设置和输入内容决定，程序无法保证所有设备都启用厂商 AI 模型。
-- Vulkan NCNN 后端仍以独立进程分批执行；目录直连显著减少额外读写，但不会消除阶段切换。
+- Vulkan NCNN 常驻 worker 已消除逐批启动与 PNG 中转，但不同模型连续执行仍受显存带宽、模型复杂度和同步点限制。
+- FlashVSR 与 SeedVR2 需要多 GiB 权重和独立的新式 CUDA 环境，仅支持 Win10/11 手动使用。
 - `ultra` 通常启用 TTA，速度和显存成本可能远高于 `quality`。
 - Win7 构建兼容 GUI 和基础流水线，但现代 CUDA、RTX VSR、AV1 硬件编解码是否可用取决于厂商是否仍提供兼容驱动。
 - 发布包较大，因为它同时包含 FFmpeg 运行库、多个 NCNN 可执行程序和模型。

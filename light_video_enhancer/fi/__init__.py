@@ -10,9 +10,15 @@ def create_fi_engine(engine_name: str, device: str = "auto",
     if engine_name == "rife":
         from .rife import RIFEEngine
         return RIFEEngine(device=device, torch_python=torch_python)
+    if engine_name == "ema_vfi":
+        from .ema_vfi import EMAVFIEngine
+        return EMAVFIEngine(device=device, quality=quality, torch_python=torch_python)
     if engine_name == "rife_ncnn":
         from .rife_ncnn import RIFENcnnEngine
         return RIFENcnnEngine(quality=quality, gpu_id=ncnn_gpu)
+    if engine_name == "ifrnet_ncnn":
+        from .ifrnet_ncnn import IFRNetNcnnEngine
+        return IFRNetNcnnEngine(quality=quality, gpu_id=ncnn_gpu)
     if engine_name == "dis":
         from .dis_flow import DISFlowEngine
         return DISFlowEngine(quality=quality)

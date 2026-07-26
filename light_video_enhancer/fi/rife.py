@@ -11,7 +11,8 @@ from .base import FrameInterpolationEngine
 from ._scene_detect import PAIR_NORMAL, classify_pair, skipped_intermediates
 from .._logging import get_logger
 from .._paths import get_model_file, get_pkg_file
-from .._shared_frames import SharedNDArray, read_framed, write_framed
+from .._shared_frames import (
+    SharedNDArray, close_process_pipes, read_framed, write_framed)
 
 _log = get_logger(__name__)
 
@@ -274,6 +275,7 @@ class RIFEEngine(FrameInterpolationEngine):
                     pass
         if self._stderr_thread and self._stderr_thread.is_alive():
             self._stderr_thread.join(timeout=1)
+        close_process_pipes(process)
         self._release_shared()
         self._model = None
         if _TORCH_AVAILABLE and torch.cuda.is_available():

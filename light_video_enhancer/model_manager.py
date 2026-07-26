@@ -45,6 +45,23 @@ def _pack(pack_id: str, archive: str, name_zh: str, name_en: str,
     }
 
 
+def _remote_pack(*args, downloads: Dict[str, str],
+                 official_base: str, mirror_base: str,
+                 download_size: int = 0,
+                 hashes: Optional[Dict[str, str]] = None) -> dict:
+    pack = _pack(*args)
+    pack.update({
+        "downloads": dict(downloads),
+        "remote_bases": {
+            "official": official_base,
+            "mirror": mirror_base,
+        },
+        "remote_download_size": int(download_size),
+        "remote_hashes": dict(hashes or {}),
+    })
+    return pack
+
+
 MODEL_PACKS = (
     _pack(
         "rife-pytorch", "lve-model-rife-pytorch.zip",
@@ -54,11 +71,95 @@ MODEL_PACKS = (
         ["fi/flownet.pkl"],
     ),
     _pack(
+        "ema-vfi-small", "lve-model-ema-vfi-small.zip",
+        "EMA-VFI Small 插帧", "EMA-VFI Small interpolation",
+        "高效 CUDA 任意时刻插帧模型，支持 2x 至 4x 特征复用。",
+        "Efficient arbitrary-timestep CUDA interpolation with feature reuse from 2x to 4x.",
+        ["fi/ema_vfi/ours_small_t.pkl"],
+    ),
+    _remote_pack(
+        "flashvsr-v1.1", "flashvsr-v1.1",
+        "FlashVSR v1.1（可选，约 6.5 GiB）",
+        "FlashVSR v1.1 (optional, about 6.5 GiB)",
+        "Win10/11 实验性扩散视频超分；需要独立 Python 3.11 CUDA 与 Block-Sparse Attention。",
+        "Experimental diffusion VSR for Windows 10/11; requires a separate Python 3.11 CUDA environment with Block-Sparse Attention.",
+        [
+            "flashvsr-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors",
+            "flashvsr-v1.1/LQ_proj_in.ckpt",
+            "flashvsr-v1.1/TCDecoder.ckpt",
+        ],
+        downloads={
+            "flashvsr-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors": "diffusion_pytorch_model_streaming_dmd.safetensors",
+            "flashvsr-v1.1/LQ_proj_in.ckpt": "LQ_proj_in.ckpt",
+            "flashvsr-v1.1/TCDecoder.ckpt": "TCDecoder.ckpt",
+        },
+        official_base="https://huggingface.co/JunhaoZhuang/FlashVSR-v1.1/resolve/main",
+        mirror_base="https://hf-mirror.com/JunhaoZhuang/FlashVSR-v1.1/resolve/main",
+        download_size=6925634764,
+        hashes={
+            "flashvsr-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors": "bd28180edcf3446c028e32fc6b731a80bf7e4da2ab4caac3186b9499964d37be",
+            "flashvsr-v1.1/LQ_proj_in.ckpt": "d6d011cdaaba6a52645086caa08fa04124e746f6ca568140a24007591142bfd2",
+            "flashvsr-v1.1/TCDecoder.ckpt": "e224bdcf2f52745cbf4d393ff5374c2ba09e90285d5d19062d2bf63b915b6161",
+        },
+    ),
+    _remote_pack(
+        "seedvr2-3b-fp8", "seedvr2-3b-fp8",
+        "SeedVR2 3B FP8（可选，约 3.6 GiB）",
+        "SeedVR2 3B FP8 (optional, about 3.6 GiB)",
+        "Win10/11 重型视频修复；为 8-16 GB 显存启用分块 VAE 与模型交换。",
+        "Heavy Win10/11 video restoration with tiled VAE and model swapping for 8-16 GB VRAM.",
+        [
+            "seedvr2-3b-fp8/seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+            "seedvr2-3b-fp8/ema_vae_fp16.safetensors",
+        ],
+        downloads={
+            "seedvr2-3b-fp8/seedvr2_ema_3b_fp8_e4m3fn.safetensors": "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+            "seedvr2-3b-fp8/ema_vae_fp16.safetensors": "ema_vae_fp16.safetensors",
+        },
+        official_base="https://huggingface.co/numz/SeedVR2_comfyUI/resolve/main",
+        mirror_base="https://hf-mirror.com/numz/SeedVR2_comfyUI/resolve/main",
+        download_size=3892869510,
+        hashes={
+            "seedvr2-3b-fp8/seedvr2_ema_3b_fp8_e4m3fn.safetensors": "3bf1e43ebedd570e7e7a0b1b60d6a02e105978f505c8128a241cde99a8240cff",
+            "seedvr2-3b-fp8/ema_vae_fp16.safetensors": "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1",
+        },
+    ),
+    _pack(
         "rife-ncnn", "lve-model-rife-ncnn.zip",
         "RIFE NCNN 插帧", "RIFE NCNN interpolation",
         "便携 Vulkan 插帧模型，适用于 NVIDIA、AMD 与 Intel。",
         "Portable Vulkan interpolation for NVIDIA, AMD, and Intel GPUs.",
         ["ncnn/rife/rife-v4.6/flownet.param", "ncnn/rife/rife-v4.6/flownet.bin"],
+    ),
+    _pack(
+        "ifrnet-ncnn", "lve-model-ifrnet-ncnn.zip",
+        "IFRNet NCNN 插帧", "IFRNet NCNN interpolation",
+        "轻量跨显卡 Vulkan 插帧，包含小型、标准与大型质量档位。",
+        "Lightweight cross-vendor Vulkan interpolation with small, base, and large models.",
+        [
+            "ncnn/ifrnet/IFRNet_S_Vimeo90K/ifrnet.param",
+            "ncnn/ifrnet/IFRNet_S_Vimeo90K/ifrnet.bin",
+            "ncnn/ifrnet/IFRNet_Vimeo90K/ifrnet.param",
+            "ncnn/ifrnet/IFRNet_Vimeo90K/ifrnet.bin",
+            "ncnn/ifrnet/IFRNet_L_Vimeo90K/ifrnet.param",
+            "ncnn/ifrnet/IFRNet_L_Vimeo90K/ifrnet.bin",
+        ],
+    ),
+    _pack(
+        "span-ncnn", "lve-model-span-ncnn.zip",
+        "SPAN NCNN 超分", "SPAN NCNN super resolution",
+        "轻量 Vulkan 超分，提供 2×/4× 与 48/52 通道模型。",
+        "Lightweight Vulkan super resolution with 2x/4x and 48/52-channel models.",
+        [
+            "ncnn/span/spanx2_ch48.param",
+            "ncnn/span/spanx2_ch48.bin",
+            "ncnn/span/spanx2_ch52.param",
+            "ncnn/span/spanx2_ch52.bin",
+            "ncnn/span/spanx4_ch48.param",
+            "ncnn/span/spanx4_ch48.bin",
+            "ncnn/span/spanx4_ch52.param",
+            "ncnn/span/spanx4_ch52.bin",
+        ],
     ),
     _pack(
         "realcugan", "lve-model-realcugan.zip",
@@ -192,15 +293,20 @@ def list_model_packs() -> dict:
         size = int(metadata.get("installed_size", 0))
         if not size:
             for relative in definition["files"]:
-                path = Path(get_pkg_file(*PurePosixPath(relative).parts))
+                external = Path(get_model_root(), *PurePosixPath(relative).parts)
+                path = external if external.is_file() else Path(get_pkg_file(*PurePosixPath(relative).parts))
                 if path.is_file():
                     size += path.stat().st_size
         packs.append({
-            **{key: value for key, value in definition.items() if key != "files"},
+            **{key: value for key, value in definition.items()
+               if key not in {"files", "downloads", "remote_bases",
+                              "remote_download_size", "remote_hashes"}},
             "status": status,
             "installed": status in {"bundled", "downloaded"},
             "installed_size": size,
-            "download_size": int(metadata.get("archive_size", 0)),
+            "download_size": int(
+                metadata.get("archive_size", 0) or
+                definition.get("remote_download_size", 0)),
         })
     return {
         "protocol_version": MODEL_PROTOCOL_VERSION,
@@ -292,10 +398,75 @@ def install_model_archive(pack_id: str, archive: str,
                 os.replace(str(source), str(target))
 
 
+def _remote_file_url(pack: dict, relative: str, source: str,
+                     custom_base: Optional[str]) -> str:
+    filename = pack["downloads"][relative]
+    if source == "custom":
+        base = (custom_base or "").strip()
+        if not base:
+            raise ValueError("A custom source URL is required / 请输入自定义下载源")
+    else:
+        key = "mirror" if source == "mirror" else "official"
+        base = pack["remote_bases"][key]
+    if "{file}" in base:
+        return base.replace("{file}", filename)
+    return base.rstrip("/") + "/" + filename
+
+
+def _download_remote_pack(pack: dict, source: str,
+                          custom_base: Optional[str],
+                          progress: Optional[ProgressCallback]) -> None:
+    root = Path(get_model_root())
+    download_dir = root / ".downloads" / pack["id"]
+    download_dir.mkdir(parents=True, exist_ok=True)
+    for relative in pack["files"]:
+        target = root.joinpath(*PurePosixPath(relative).parts)
+        if target.is_file():
+            continue
+        filename = pack["downloads"][relative]
+        part = download_dir / (filename + ".part")
+        existing = part.stat().st_size if part.is_file() else 0
+        headers = {"User-Agent": "LightVideoEnhancer/1"}
+        if existing:
+            headers["Range"] = "bytes=%d-" % existing
+        request = urllib.request.Request(
+            _remote_file_url(pack, relative, source, custom_base),
+            headers=headers)
+        with urllib.request.urlopen(request, timeout=90) as response:
+            partial = int(getattr(response, "status", 200) or 200) == 206
+            if existing and not partial:
+                existing = 0
+            mode = "ab" if existing and partial else "wb"
+            remaining = int(response.headers.get("Content-Length") or 0)
+            total = existing + remaining if remaining else 0
+            current = existing
+            with part.open(mode) as output:
+                while True:
+                    chunk = response.read(4 * 1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+                    current += len(chunk)
+                    if progress:
+                        progress("download", current, total)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        expected_hash = str(
+            pack.get("remote_hashes", {}).get(relative, "") or
+            _metadata(pack["id"]).get("files", {}).get(relative, ""))
+        if expected_hash and _sha256(part) != expected_hash:
+            raise ValueError(
+                "Model file checksum mismatch / 模型文件校验失败: " +
+                relative)
+        os.replace(str(part), str(target))
+
+
 def download_model_pack(pack_id: str, source: str = "github",
                         custom_base: Optional[str] = None,
                         progress: Optional[ProgressCallback] = None) -> None:
     pack = _pack_by_id(pack_id)
+    if pack.get("downloads"):
+        _download_remote_pack(pack, source, custom_base, progress)
+        return
     url = _url_for(pack, source, custom_base)
     root = Path(get_model_root())
     download_dir = root / ".downloads"

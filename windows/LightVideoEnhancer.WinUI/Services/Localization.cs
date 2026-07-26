@@ -20,6 +20,8 @@ public static class Localization
             ["引擎"] = "Engine", ["倍率"] = "Scale", ["质量"] = "Quality",
             ["自动选择（推荐）"] = "Auto (recommended)", ["自动选择"] = "Auto",
             ["D3D11 驱动 VSR"] = "D3D11 driver VSR", ["ESRGAN 经典模型 ncnn"] = "Classic ESRGAN ncnn",
+            ["FlashVSR v1.1（实验）"] = "FlashVSR v1.1 (experimental)",
+            ["SeedVR2 3B FP8（重型修复）"] = "SeedVR2 3B FP8 (heavy restoration)",
             ["不改变分辨率"] = "Keep original resolution", ["不插帧"] = "No interpolation",
             ["RIFE AI（PyTorch）"] = "RIFE AI (PyTorch)", ["DIS 稠密光流"] = "DIS dense optical flow",
             ["Farneback 光流"] = "Farneback optical flow", ["CUDA 块匹配光流"] = "CUDA block-matching flow",
@@ -36,8 +38,8 @@ public static class Localization
             ["处理后端"] = "Processing backend", ["刷新快速检测"] = "Refresh quick check",
             ["扫描 Python / PyTorch 环境"] = "Scan Python / PyTorch environments",
             ["硬件与可用能力"] = "Hardware & available capabilities", ["Python 环境"] = "Python environments",
-            ["下载源"] = "Download source", ["来源"] = "Source", ["GitHub（官方）"] = "GitHub (official)",
-            ["GitHub Proxy（镜像）"] = "GitHub Proxy (mirror)", ["自定义地址"] = "Custom URL",
+            ["下载源"] = "Download source", ["来源"] = "Source", ["官方（GitHub / Hugging Face）"] = "Official (GitHub / Hugging Face)",
+            ["镜像（GitHub Proxy / HF Mirror）"] = "Mirror (GitHub Proxy / HF Mirror)", ["自定义地址"] = "Custom URL",
             ["自定义基础地址或 {archive} 模板"] = "Custom base URL or {archive} template",
             ["刷新状态"] = "Refresh status", ["正在读取模型状态…"] = "Reading model status…",
             ["导入 ZIP"] = "Import ZIP", ["移除"] = "Remove", ["下载"] = "Download",
@@ -51,6 +53,8 @@ public static class Localization
             ["只影响支持质量档位的超分引擎。"] = "Only affects super-resolution engines with quality presets.",
             ["光流类引擎支持质量档位；RIFE 模型使用自身固定参数。"] =
                 "Optical-flow engines support quality presets; RIFE models use fixed model parameters.",
+            ["综合设备、已扫描环境、目标尺寸、质量档和处理顺序评分；不会自动启用重型实验模型。"] =
+                "Scores hardware, scanned runtimes, target size, quality preset, and stage order; heavy experimental models are never enabled automatically.",
             ["自动编码器会根据显卡厂商选择可用硬件后端，并在同格式内依次回退。"] =
                 "Auto encoder selects an available hardware backend by GPU vendor and falls back within the same format.",
             ["快速检测不会导入 PyTorch；完整扫描只会在你手动触发时运行，并写入 24 小时缓存。"] =

@@ -210,7 +210,9 @@ def check_python_env(python_exe: str, timeout: float = 12.0) -> Dict[str, Any]:
     script = r"""
 import importlib.util, json, sys
 r = {'version': '.'.join(map(str, sys.version_info[:3])), 'torch': False,
-     'cuda': False, 'torch_version': '', 'gpu_name': '', 'nvvfx': False}
+     'cuda': False, 'torch_version': '', 'gpu_name': '', 'nvvfx': False,
+     'flashvsr': False, 'seedvr2': False}
+find = importlib.util.find_spec
 if importlib.util.find_spec('torch') is not None:
     try:
         import torch
@@ -222,11 +224,20 @@ if importlib.util.find_spec('torch') is not None:
     except Exception as e:
         r['error'] = str(e)
 r['nvvfx'] = importlib.util.find_spec('nvvfx') is not None
+flash_modules = ('block_sparse_attn', 'einops', 'safetensors', 'PIL', 'tqdm')
+seed_modules = ('torchvision', 'safetensors', 'psutil', 'einops',
+                'omegaconf', 'diffusers', 'peft',
+                'rotary_embedding_torch', 'cv2', 'gguf', 'matplotlib')
+r['flashvsr'] = bool(r['cuda'] and sys.version_info[:2] == (3, 11)
+                     and all(find(name) is not None for name in flash_modules))
+r['seedvr2'] = bool(r['cuda'] and sys.version_info[:2] >= (3, 10)
+                    and all(find(name) is not None for name in seed_modules))
 print(json.dumps(r, ensure_ascii=True))
 """
     info: Dict[str, Any] = {"exe": python_exe, "version": "?", "torch": False,
                             "cuda": False, "torch_version": "", "gpu_name": "",
-                            "nvvfx": False}
+                            "nvvfx": False, "flashvsr": False,
+                            "seedvr2": False}
     try:
         result = subprocess.run(
             [python_exe, "-c", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -248,10 +259,15 @@ print(json.dumps(r, ensure_ascii=True))
     return info
 
 
+_ENV_CACHE_VERSION = 2
+
+
 def _load_cache(max_age: float = 24 * 3600) -> List[Dict[str, Any]]:
     try:
         with open(_cache_path(), "r", encoding="utf-8") as handle:
             data = json.load(handle)
+        if int(data.get("version", 0)) != _ENV_CACHE_VERSION:
+            return []
         if time.time() - float(data.get("created", 0)) > max_age:
             return []
         valid = []
@@ -262,6 +278,35 @@ def _load_cache(max_age: float = 24 * 3600) -> List[Dict[str, Any]]:
         return valid
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return []
+
+
+def get_cached_python_envs() -> List[Dict[str, Any]]:
+    """Return fresh explicit-scan results without probing any interpreter."""
+    return [dict(item) for item in _load_cache()]
+
+
+def get_cached_python_env(python_exe: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Return a previously scanned environment without starting a subprocess.
+
+    Automatic engine selection calls this function on the processing hot path.
+    A missing or expired entry is intentionally treated as unverified: the
+    explicit GUI scan remains the only operation that probes Python installs.
+    """
+    if not python_exe:
+        return None
+    try:
+        wanted = os.path.normcase(os.path.realpath(os.path.abspath(python_exe)))
+    except (OSError, TypeError, ValueError):
+        return None
+    for item in get_cached_python_envs():
+        try:
+            candidate = os.path.normcase(
+                os.path.realpath(os.path.abspath(str(item.get("exe", "")))))
+        except (OSError, TypeError, ValueError):
+            continue
+        if candidate == wanted:
+            return dict(item)
+    return None
 
 
 def _save_cache(items: List[Dict[str, Any]]) -> None:
@@ -276,7 +321,8 @@ def _save_cache(items: List[Dict[str, Any]]) -> None:
             value["mtime"] = os.path.getmtime(value["exe"])
             serialised.append(value)
         with open(path, "w", encoding="utf-8") as handle:
-            json.dump({"created": time.time(), "environments": serialised}, handle,
+            json.dump({"version": _ENV_CACHE_VERSION, "created": time.time(),
+                       "environments": serialised}, handle,
                       ensure_ascii=False, indent=2)
     except OSError:
         _log.debug("无法写入环境缓存", exc_info=True)
@@ -329,4 +375,15 @@ def get_torch_python(force_rescan: bool = False) -> Optional[str]:
             return _memory_result
     _memory_result = None
     _memory_checked = True
+    return None
+
+def get_python_for_feature(feature: str,
+                           force_rescan: bool = False) -> Optional[str]:
+    """Return a scanned Python executable that provides an optional feature."""
+    if feature not in {"flashvsr", "seedvr2"}:
+        raise ValueError("Unknown Python feature: %s" % feature)
+    for info in get_all_python_envs(force_rescan=force_rescan):
+        if (info.get("torch") and info.get("cuda")
+                and bool(info.get(feature))):
+            return str(info["exe"])
     return None

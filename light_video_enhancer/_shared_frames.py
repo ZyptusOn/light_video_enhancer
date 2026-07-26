@@ -57,6 +57,20 @@ class SharedNDArray:
                     pass
 
 
+def close_process_pipes(process) -> None:
+    """Close every parent-side subprocess pipe after reader threads stop."""
+    if process is None:
+        return
+    for name in ("stdin", "stdout", "stderr"):
+        pipe = getattr(process, name, None)
+        if pipe is None or getattr(pipe, "closed", False):
+            continue
+        try:
+            pipe.close()
+        except OSError:
+            pass
+
+
 def write_framed(pipe, value: Any) -> None:
     data = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
     pipe.write(struct.pack("!I", len(data)))

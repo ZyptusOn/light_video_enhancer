@@ -142,8 +142,8 @@ public sealed partial class MainPage : Page
         }
         string sr = SelectedTag(SrEngineBox, "auto");
         string fi = SelectedTag(FiEngineBox, "auto");
-        SrQualityBox.IsEnabled = sr is "auto" or "nvvfx" or "realcugan" or "realesrgan" or "esrgan";
-        FiQualityBox.IsEnabled = fi is "auto" or "dis" or "optical_flow" or "torch_flow";
+        SrQualityBox.IsEnabled = sr is "auto" or "nvvfx" or "span" or "flashvsr" or "seedvr2" or "realcugan" or "realesrgan" or "esrgan";
+        FiQualityBox.IsEnabled = fi is "auto" or "ema_vfi" or "dis" or "optical_flow" or "torch_flow";
         SuggestOutputPath();
     }
 
@@ -614,9 +614,15 @@ public sealed partial class MainPage : Page
 
         AddOptionalNumber(values, "--start", StartTimeBox.Text, T("开始时间", "Start time"));
         AddOptionalNumber(values, "--duration", DurationBox.Text, T("时长", "Duration"));
-        if (!string.IsNullOrWhiteSpace(TorchPythonBox.Text))
+        string requestedPython = srEngine switch
         {
-            string python = TorchPythonBox.Text.Trim();
+            "flashvsr" when !string.IsNullOrWhiteSpace(_flashVsrPython) => _flashVsrPython!,
+            "seedvr2" when !string.IsNullOrWhiteSpace(_seedVr2Python) => _seedVr2Python!,
+            _ => TorchPythonBox.Text.Trim(),
+        };
+        if (!string.IsNullOrWhiteSpace(requestedPython))
+        {
+            string python = requestedPython;
             if (!File.Exists(python))
             {
                 throw new ArgumentException(T("指定的 PyTorch Python 不存在。", "The selected PyTorch Python does not exist."));
@@ -702,6 +708,11 @@ public sealed partial class MainPage : Page
         AppendCapability(text, root, "vsr_dll", "D3D11 VSR Bridge");
         AppendCapability(text, root, "rife_model", T("RIFE PyTorch 模型", "RIFE PyTorch model"));
         AppendCapability(text, root, "ncnn_rife", "RIFE ncnn-vulkan");
+        AppendCapability(text, root, "ema_vfi_model", "EMA-VFI Small model");
+        AppendCapability(text, root, "flashvsr_model", "FlashVSR v1.1 model");
+        AppendCapability(text, root, "seedvr2_model", "SeedVR2 3B FP8 model");
+        AppendCapability(text, root, "ncnn_ifrnet", "IFRNet ncnn-vulkan");
+        AppendCapability(text, root, "ncnn_span", "SPAN ncnn-vulkan");
         AppendCapability(text, root, "ncnn_cugan", "Real-CUGAN ncnn");
         AppendCapability(text, root, "ncnn_esrgan", "Real-ESRGAN ncnn");
         AppendCapability(text, root, "ncnn_classic_esrgan", T("ESRGAN 经典模型", "Classic ESRGAN model"));
@@ -718,6 +729,7 @@ public sealed partial class MainPage : Page
             }
         }
         CapabilitiesBox.Text = text.ToString().TrimEnd();
+        UpdateBuiltInEngineAvailability(root);
         UpdateExternalEngineAvailability();
         if (root.TryGetProperty("version", out JsonElement version))
         {
@@ -731,6 +743,8 @@ public sealed partial class MainPage : Page
         StringBuilder text = new();
         int index = 0;
         string? recommended = null;
+        _flashVsrPython = null;
+        _seedVr2Python = null;
         foreach (JsonElement environment in document.RootElement.EnumerateArray())
         {
             index++;
@@ -739,10 +753,20 @@ public sealed partial class MainPage : Page
             bool torch = BoolProperty(environment, "torch");
             bool cuda = BoolProperty(environment, "cuda");
             bool nvvfx = BoolProperty(environment, "nvvfx");
+            bool flashvsr = BoolProperty(environment, "flashvsr");
+            bool seedvr2 = BoolProperty(environment, "seedvr2");
             string torchVersion = StringProperty(environment, "torch_version", "-");
             string gpu = StringProperty(environment, "gpu_name", "-");
             text.AppendLine($"[{index}] {exe}");
-            text.AppendLine($"    Python {python} | PyTorch {(torch ? torchVersion : "--")} | CUDA {(cuda ? "OK" : "--")} | NV-VFX {(nvvfx ? "OK" : "--")}");
+            text.AppendLine($"    Python {python} | PyTorch {(torch ? torchVersion : "--")} | CUDA {(cuda ? "OK" : "--")} | NV-VFX {(nvvfx ? "OK" : "--")} | FlashVSR {(flashvsr ? "OK" : "--")} | SeedVR2 {(seedvr2 ? "OK" : "--")}");
+            if (flashvsr)
+            {
+                _flashVsrPython ??= exe;
+            }
+            if (seedvr2)
+            {
+                _seedVr2Python ??= exe;
+            }
             if (cuda)
             {
                 text.AppendLine($"    GPU: {gpu}");
@@ -782,16 +806,22 @@ public sealed partial class MainPage : Page
         int torch = 0;
         int cuda = 0;
         int nvvfx = 0;
+        int flashvsr = 0;
+        int seedvr2 = 0;
         foreach (JsonElement environment in document.RootElement.EnumerateArray())
         {
             environments++;
             torch += BoolProperty(environment, "torch") ? 1 : 0;
             cuda += BoolProperty(environment, "cuda") ? 1 : 0;
             nvvfx += BoolProperty(environment, "nvvfx") ? 1 : 0;
+            flashvsr += BoolProperty(environment, "flashvsr") ? 1 : 0;
+            seedvr2 += BoolProperty(environment, "seedvr2") ? 1 : 0;
         }
         text.AppendLine($"  {(torch > 0 ? "✓" : "—")} PyTorch ({torch}/{environments})");
         text.AppendLine($"  {(cuda > 0 ? "✓" : "—")} CUDA ({cuda}/{environments})");
         text.AppendLine($"  {(nvvfx > 0 ? "✓" : "—")} NVIDIA VFX ({nvvfx}/{environments})");
+        text.AppendLine($"  {(flashvsr > 0 ? "✓" : "—")} FlashVSR ({flashvsr}/{environments})");
+        text.AppendLine($"  {(seedvr2 > 0 ? "✓" : "—")} SeedVR2 ({seedvr2}/{environments})");
     }
 
     private static void AppendCapability(StringBuilder text, JsonElement root, string property, string label)

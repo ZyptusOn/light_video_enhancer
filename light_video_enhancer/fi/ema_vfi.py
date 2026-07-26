@@ -1,0 +1,195 @@
+"""EMA-VFI Small interpolation in an isolated CUDA PyTorch process."""
+
+import os
+import subprocess
+import sys
+import threading
+from typing import List, Optional
+
+import numpy as np
+
+from ._scene_detect import PAIR_NORMAL, classify_pair, skipped_intermediates
+from .base import FrameInterpolationEngine
+from .._logging import get_logger
+from .._paths import get_model_file, get_pkg_file
+from .._shared_frames import (
+    SharedNDArray, close_process_pipes, read_framed, write_framed)
+
+_log = get_logger(__name__)
+
+
+class EMAVFIEngine(FrameInterpolationEngine):
+    """Official EMA-VFI Small arbitrary-timestep model.
+
+    The model stays in a dedicated external Python process so its PyTorch
+    runtime cannot conflict with the packaged backend or another AI engine.
+    """
+
+    _QUALITY = {
+        "fast": (True, 0.5, False),
+        "balanced": (True, 1.0, False),
+        "quality": (False, 1.0, False),
+        "ultra": (False, 1.0, True),
+    }
+
+    def __init__(self, device: str = "auto", quality: str = "balanced",
+                 torch_python: Optional[str] = None):
+        self._requested_device = device
+        self._quality = quality if quality in self._QUALITY else "balanced"
+        self._torch_python = torch_python
+        self._proc = None
+        self._stderr_thread = None
+        self._stderr_lines: List[str] = []
+        self._shared_input = None
+        self._shared_output = None
+        self._width = self._height = 0
+        self._pad_w = self._pad_h = 0
+        self._multiplier = 2
+        self._model_path = ""
+
+    @property
+    def name(self) -> str:
+        fp16, down_scale, tta = self._QUALITY[self._quality]
+        detail = "FP16" if fp16 else "FP32"
+        if down_scale != 1.0:
+            detail += ", flow %.2fx" % down_scale
+        if tta:
+            detail += ", TTA"
+        return "EMA-VFI Small (%s, subprocess-shm)" % detail
+
+    def initialize(self, width: int, height: int,
+                   multiplier: int = 2) -> None:
+        if multiplier < 2:
+            raise ValueError("EMA-VFI interpolation multiplier must be at least 2")
+        if self._requested_device == "cpu":
+            raise RuntimeError("EMA-VFI Small currently requires a CUDA GPU")
+        self._width, self._height = int(width), int(height)
+        self._multiplier = int(multiplier)
+        fp16, down_scale, tta = self._QUALITY[self._quality]
+        alignment = 64 if down_scale < 1.0 else 32
+        self._pad_w = ((width + alignment - 1) // alignment) * alignment - width
+        self._pad_h = ((height + alignment - 1) // alignment) * alignment - height
+        self._model_path = get_model_file(
+            "fi", "ema_vfi", "ours_small_t.pkl")
+        if not os.path.isfile(self._model_path):
+            raise FileNotFoundError(
+                "EMA-VFI Small model is missing: fi/ema_vfi/ours_small_t.pkl")
+
+        try:
+            self._shared_input = SharedNDArray.create(
+                (2, self._height, self._width, 3))
+            self._shared_output = SharedNDArray.create(
+                (self._multiplier - 1, self._height, self._width, 3))
+        except (OSError, RuntimeError, ValueError):
+            self._release_shared()
+            raise RuntimeError(
+                "EMA-VFI shared memory could not be allocated")
+
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        script = get_pkg_file("fi", "_ema_vfi_infer.py")
+        self._proc = subprocess.Popen(
+            [self._torch_python or sys.executable, "-u", script],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, creationflags=flags)
+        self._stderr_thread = threading.Thread(
+            target=self._read_stderr, args=(self._proc.stderr,), daemon=True)
+        self._stderr_thread.start()
+        write_framed(self._proc.stdin, {
+            "model_path": self._model_path,
+            "fp16": fp16,
+            "down_scale": down_scale,
+            "tta": tta,
+            "shared_input": self._shared_input.descriptor(),
+            "shared_output": self._shared_output.descriptor(),
+        })
+        try:
+            reply = read_framed(self._proc.stdout)
+        except EOFError as exc:
+            error = self._stderr_text()
+            self.release()
+            raise RuntimeError(
+                "EMA-VFI subprocess failed to start:\n%s" % error) from exc
+        if not isinstance(reply, dict) or not reply.get("ready"):
+            error = reply.get("error", "invalid startup reply") if isinstance(
+                reply, dict) else "invalid startup reply"
+            self.release()
+            raise RuntimeError("EMA-VFI subprocess failed to start: %s" % error)
+        _log.info(
+            "EMA-VFI Small ready: %dx%d, %dx, quality=%s",
+            width, height, multiplier, self._quality)
+
+    def interpolate(self, frame0: np.ndarray,
+                    frame1: np.ndarray) -> List[np.ndarray]:
+        if frame0.shape != frame1.shape:
+            raise ValueError("EMA-VFI input frame dimensions do not match")
+        pair_mode = classify_pair(frame0, frame1)
+        if pair_mode != PAIR_NORMAL:
+            return skipped_intermediates(
+                frame0, frame1, self._multiplier, pair_mode)
+        if self._proc is None or self._proc.poll() is not None:
+            raise RuntimeError(
+                "EMA-VFI subprocess exited:\n%s" % self._stderr_text())
+        np.copyto(self._shared_input.array[0], frame0)
+        np.copyto(self._shared_input.array[1], frame1)
+        try:
+            write_framed(self._proc.stdin, {
+                "timesteps": [
+                    index / self._multiplier
+                    for index in range(1, self._multiplier)
+                ],
+                "pad_w": self._pad_w,
+                "pad_h": self._pad_h,
+            })
+            reply = read_framed(self._proc.stdout)
+        except (EOFError, BrokenPipeError) as exc:
+            raise RuntimeError(
+                "EMA-VFI subprocess communication failed:\n%s" %
+                self._stderr_text()) from exc
+        if not isinstance(reply, dict) or "count" not in reply:
+            error = reply.get("error", "invalid reply") if isinstance(
+                reply, dict) else "invalid reply"
+            raise RuntimeError("EMA-VFI inference failed: %s" % error)
+        return [
+            self._shared_output.array[index].copy()
+            for index in range(int(reply["count"]))
+        ]
+
+    def _read_stderr(self, pipe) -> None:
+        try:
+            for line in pipe:
+                text = line.decode("utf-8", errors="replace").rstrip()
+                if text:
+                    self._stderr_lines.append(text)
+        except Exception:
+            pass
+
+    def _stderr_text(self) -> str:
+        return "\n".join(self._stderr_lines[-20:])
+
+    def release(self) -> None:
+        process, self._proc = self._proc, None
+        if process is not None:
+            try:
+                if process.stdin:
+                    process.stdin.close()
+                process.wait(timeout=5)
+            except Exception:
+                process.kill()
+                try:
+                    process.wait(timeout=2)
+                except Exception:
+                    pass
+        if self._stderr_thread and self._stderr_thread.is_alive():
+            self._stderr_thread.join(timeout=1)
+        close_process_pipes(process)
+        self._release_shared()
+
+    def _release_shared(self) -> None:
+        for name in ("_shared_input", "_shared_output"):
+            value = getattr(self, name, None)
+            if value is not None:
+                try:
+                    value.close()
+                except Exception:
+                    pass
+                setattr(self, name, None)

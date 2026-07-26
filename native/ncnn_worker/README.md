@@ -1,7 +1,7 @@
 # Persistent NCNN Vulkan worker
 
-This worker embeds the upstream RIFE, Real-CUGAN, and Real-ESRGAN NCNN
-implementations in one process. Frames are exchanged through Windows named
+This worker embeds the upstream RIFE, IFRNet, SPAN, Real-CUGAN, and
+Real-ESRGAN NCNN implementations in one process. Frames are exchanged through Windows named
 shared memory; stdin/stdout carry only small versioned binary control packets.
 Models and Vulkan pipelines remain resident for the entire video job.
 
@@ -12,6 +12,8 @@ any initialization failure falls back before video processing starts.
 Upstream source snapshots:
 
 - `nihui/rife-ncnn-vulkan`
+- `nihui/ifrnet-ncnn-vulkan`
+- `hongyuanyu/SPAN` (converted checkpoints)
 - `nihui/realcugan-ncnn-vulkan`
 - `xinntao/Real-ESRGAN-ncnn-vulkan`
 

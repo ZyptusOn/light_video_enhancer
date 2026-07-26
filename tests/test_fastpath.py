@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 import unittest
@@ -5,7 +6,7 @@ from unittest import mock
 
 import numpy as np
 
-from light_video_enhancer._shared_frames import SharedNDArray
+from light_video_enhancer._shared_frames import SharedNDArray, close_process_pipes
 from light_video_enhancer.config import ProcessConfig
 from light_video_enhancer.fused_rife_nvvfx import (
     FusedRifeNvvfxEngine,
@@ -36,6 +37,18 @@ class FastPathTests(unittest.TestCase):
                 attached.close()
             owner.close()
 
+    def test_process_pipe_cleanup_is_idempotent(self):
+        process = type("Process", (), {
+            "stdin": io.BytesIO(),
+            "stdout": io.BytesIO(),
+            "stderr": io.BytesIO(),
+        })()
+        close_process_pipes(process)
+        close_process_pipes(process)
+        self.assertTrue(process.stdin.closed)
+        self.assertTrue(process.stdout.closed)
+        self.assertTrue(process.stderr.closed)
+
     def test_fused_output_count_handles_chunk_overlap(self):
         self.assertEqual(FusedRifeNvvfxEngine.output_count(3, 2), 5)
         self.assertEqual(FusedRifeNvvfxEngine.output_count(3, 2, skip_first=True), 4)
@@ -59,7 +72,7 @@ class FastPathTests(unittest.TestCase):
         cleaner.finish()
         self.assertFalse(os.path.exists(path))
 
-    def test_fusion_python_prefers_environment_with_nvvfx(self):
+    def test_fusion_python_prefers_cached_nvvfx_without_scanning(self):
         preferred = r"C:\envs\torch-only\python.exe"
         combined = r"C:\envs\torch-nvvfx\python.exe"
         enhancer = VideoEnhancer(ProcessConfig(torch_python=preferred))
@@ -67,9 +80,11 @@ class FastPathTests(unittest.TestCase):
             {"exe": preferred, "torch": True, "cuda": True, "nvvfx": False},
             {"exe": combined, "torch": True, "cuda": True, "nvvfx": True},
         ]
-        with mock.patch("light_video_enhancer._env.get_all_python_envs",
-                        return_value=environments):
+        with mock.patch("light_video_enhancer._env.get_cached_python_envs",
+                        return_value=environments), mock.patch(
+                            "light_video_enhancer._env.get_all_python_envs") as scan:
             self.assertEqual(enhancer._fusion_python(), combined)
+        scan.assert_not_called()
 
     def test_fused_path_can_be_disabled_for_compatibility(self):
         with mock.patch.dict(os.environ, {"LVE_DISABLE_FUSED_CUDA": "1"}):

@@ -117,10 +117,17 @@
                                 <TextBlock Style="{StaticResource SectionTitleStyle}" Text="超分辨率" />
                                 <ComboBox x:Name="SrEngineBox" Header="引擎" SelectedIndex="0"
                                           SelectionChanged="QualitySelection_Changed" HorizontalAlignment="Stretch">
-                                    <ComboBoxItem Content="自动选择（推荐）" Tag="auto" />
+                                    <ComboBoxItem Content="自动选择（推荐）" Tag="auto"
+                                                  ToolTipService.ToolTip="综合设备、已扫描环境、目标尺寸、质量档和处理顺序评分；不会自动启用重型实验模型。" />
                                     <ComboBoxItem Content="D3D11 驱动 VSR" Tag="dxva_vsr" />
                                     <ComboBoxItem x:Name="NvVfxSrItem" Content="NVIDIA Video Effects VSR"
                                                   Tag="nvvfx" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="SpanSrItem" Content="SPAN ncnn-vulkan"
+                                                  Tag="span" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="FlashVsrSrItem" Content="FlashVSR v1.1（实验）"
+                                                  Tag="flashvsr" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="SeedVr2SrItem" Content="SeedVR2 3B FP8（重型修复）"
+                                                  Tag="seedvr2" IsEnabled="False" />
                                     <ComboBoxItem Content="Real-CUGAN ncnn-vulkan" Tag="realcugan" />
                                     <ComboBoxItem Content="Real-ESRGAN ncnn-vulkan" Tag="realesrgan" />
                                     <ComboBoxItem Content="ESRGAN 经典模型 ncnn" Tag="esrgan" />
@@ -151,10 +158,16 @@
                                 <TextBlock Style="{StaticResource SectionTitleStyle}" Text="插帧" />
                                 <ComboBox x:Name="FiEngineBox" Header="引擎" SelectedIndex="0"
                                           SelectionChanged="QualitySelection_Changed" HorizontalAlignment="Stretch">
-                                    <ComboBoxItem Content="自动选择（推荐）" Tag="auto" />
+                                    <ComboBoxItem Content="自动选择（推荐）" Tag="auto"
+                                                  ToolTipService.ToolTip="综合设备、已扫描环境、目标尺寸、质量档和处理顺序评分；不会自动启用重型实验模型。" />
                                     <ComboBoxItem x:Name="RifeFiItem" Content="RIFE AI（PyTorch）"
                                                   Tag="rife" IsEnabled="False" />
-                                    <ComboBoxItem Content="RIFE ncnn-vulkan" Tag="rife_ncnn" />
+                                    <ComboBoxItem x:Name="EmaVfiFiItem" Content="EMA-VFI Small（PyTorch CUDA）"
+                                                  Tag="ema_vfi" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="RifeNcnnFiItem" Content="RIFE ncnn-vulkan"
+                                                  Tag="rife_ncnn" />
+                                    <ComboBoxItem x:Name="IfrNetFiItem" Content="IFRNet ncnn-vulkan"
+                                                  Tag="ifrnet_ncnn" IsEnabled="False" />
                                     <ComboBoxItem Content="DIS 稠密光流" Tag="dis" />
                                     <ComboBoxItem Content="Farneback 光流" Tag="optical_flow" />
                                     <ComboBoxItem x:Name="TorchFlowFiItem" Content="CUDA 块匹配光流"
@@ -339,8 +352,8 @@
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="ModelSourceBox" Header="来源" SelectedIndex="0"
                               SelectionChanged="ModelSourceBox_SelectionChanged">
-                        <ComboBoxItem Content="GitHub（官方）" Tag="github" />
-                        <ComboBoxItem Content="GitHub Proxy（镜像）" Tag="mirror" />
+                        <ComboBoxItem Content="官方（GitHub / Hugging Face）" Tag="github" />
+                        <ComboBoxItem Content="镜像（GitHub Proxy / HF Mirror）" Tag="mirror" />
                         <ComboBoxItem Content="自定义地址" Tag="custom" />
                     </ComboBox>
                     <TextBox x:Name="CustomSourceBox" Grid.Column="1" Header="自定义基础地址或 {archive} 模板"
@@ -390,7 +403,7 @@
                             <TextBlock FontSize="24" FontWeight="SemiBold" Text="Light Video Enhancer" />
                             <TextBlock Style="{StaticResource CaptionStyle}"
                                        Text="WinUI 3 前端面向 Windows 10 1809 及以上系统；Windows 7 继续使用原有 Tk 前端。两个界面共享相同的 Python、C/C++、NCNN、CUDA 与 FFmpeg 处理核心。" />
-                            <TextBlock x:Name="VersionText" Text="版本 0.6.0 · WinUI 3" />
+                            <TextBlock x:Name="VersionText" Text="版本 0.7.0 · WinUI 3" />
                             <HyperlinkButton NavigateUri="https://github.com/ZyptusOn/light_video_enhancer"
                                              Content="打开 GitHub 仓库" />
                             <ComboBox x:Name="ThemeBox" Header="界面主题" SelectedIndex="0"

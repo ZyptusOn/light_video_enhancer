@@ -11,7 +11,7 @@
   <Identity
     Name="5BE2CC15-F5CB-4BC4-8EFF-40FB1901EC5A"
     Publisher="CN=ZyptusOn"
-    Version="0.6.0.0" />
+    Version="0.7.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="5BE2CC15-F5CB-4BC4-8EFF-40FB1901EC5A" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

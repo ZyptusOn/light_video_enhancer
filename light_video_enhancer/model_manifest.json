@@ -1,5 +1,14 @@
 {
   "packs": {
+    "ema-vfi-small": {
+      "archive": "lve-model-ema-vfi-small.zip",
+      "archive_size": 53867541,
+      "files": {
+        "fi/ema_vfi/ours_small_t.pkl": "ad845671f7250d408937718aca19eaf87aa1ca79215070f7641eea332b703233"
+      },
+      "installed_size": 58535773,
+      "sha256": "1d6cc0ecf4424ffcafe857bbb8b0d8a63cdb05f84321c65d98fa6cd88a745f47"
+    },
     "esrgan-classic": {
       "archive": "lve-model-esrgan-classic.zip",
       "archive_size": 30936141,
@@ -9,6 +18,31 @@
       },
       "installed_size": 33540549,
       "sha256": "22fa05142e53575a27a118640cce2cc718b53b570f445cc676a83862918311d7"
+    },
+    "flashvsr-v1.1": {
+      "archive": "flashvsr-v1.1",
+      "archive_size": 6925634764,
+      "files": {
+        "flashvsr-v1.1/LQ_proj_in.ckpt": "d6d011cdaaba6a52645086caa08fa04124e746f6ca568140a24007591142bfd2",
+        "flashvsr-v1.1/TCDecoder.ckpt": "e224bdcf2f52745cbf4d393ff5374c2ba09e90285d5d19062d2bf63b915b6161",
+        "flashvsr-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors": "bd28180edcf3446c028e32fc6b731a80bf7e4da2ab4caac3186b9499964d37be"
+      },
+      "installed_size": 0,
+      "sha256": ""
+    },
+    "ifrnet-ncnn": {
+      "archive": "lve-model-ifrnet-ncnn.zip",
+      "archive_size": 53858034,
+      "files": {
+        "ncnn/ifrnet/IFRNet_L_Vimeo90K/ifrnet.bin": "fa6e504d4a9376e492aa9a68015d70dcb52e087759132c9432fb3acdd14e9184",
+        "ncnn/ifrnet/IFRNet_L_Vimeo90K/ifrnet.param": "bce51b88a14b24fa73fccd46dad3cde5d26aea48bfcfa1f7d2d4130b0259e24c",
+        "ncnn/ifrnet/IFRNet_S_Vimeo90K/ifrnet.bin": "7c3fe0a5eb7e544bc8c615ee47d4bafcbc077f98d75eda217c9657979adb1e14",
+        "ncnn/ifrnet/IFRNet_S_Vimeo90K/ifrnet.param": "45ad4ea3bd30e6a97fababd162fdc96382c26dbb05ff2ce324e71ed19a9192a1",
+        "ncnn/ifrnet/IFRNet_Vimeo90K/ifrnet.bin": "1f01421cbc3918f240ac7212e40f2d3423f61618a3a6434d1f25a32007abe9cf",
+        "ncnn/ifrnet/IFRNet_Vimeo90K/ifrnet.param": "86334ec3a5aa85e4457a364f3169e962267c2d5dada2feb6484973d91b762c03"
+      },
+      "installed_size": 58022123,
+      "sha256": "d09d8d264613361385c0300b686f9cf42d8bb70c34311927428dc6b5a1ebaf6e"
     },
     "realcugan": {
       "archive": "lve-model-realcugan.zip",
@@ -92,6 +126,32 @@
       },
       "installed_size": 24636301,
       "sha256": "83148008ba9e038ad77727c56aebb095ebe2d549cb38608690c6ef79a20784d1"
+    },
+    "seedvr2-3b-fp8": {
+      "archive": "seedvr2-3b-fp8",
+      "archive_size": 3892869510,
+      "files": {
+        "seedvr2-3b-fp8/ema_vae_fp16.safetensors": "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1",
+        "seedvr2-3b-fp8/seedvr2_ema_3b_fp8_e4m3fn.safetensors": "3bf1e43ebedd570e7e7a0b1b60d6a02e105978f505c8128a241cde99a8240cff"
+      },
+      "installed_size": 0,
+      "sha256": ""
+    },
+    "span-ncnn": {
+      "archive": "lve-model-span-ncnn.zip",
+      "archive_size": 6829667,
+      "files": {
+        "ncnn/span/spanx2_ch48.bin": "9a3b1c2485c1e93ad03124e20c2fa26843c4fb579384a46bd0d16cbf7f6b7fb3",
+        "ncnn/span/spanx2_ch48.param": "242d27ddb549a7f5f2996801d1383e114428b6e403afc6405c54b575cb31224f",
+        "ncnn/span/spanx2_ch52.bin": "906f1f518608a8d22a51e83c2436ce5d74f1ce13a40c3c8b1db91f176cd9c27a",
+        "ncnn/span/spanx2_ch52.param": "b66651d2ca3177c2da597c42a0e9e31952a8bafbc7681997c4919c726a0b8755",
+        "ncnn/span/spanx4_ch48.bin": "7546b7b66ab5ed53303cc03c615698d1446828adf9f8c150530750fcec81b1c2",
+        "ncnn/span/spanx4_ch48.param": "9e9d15c264e2bdeb5ebe4c8f4401a1efd9fd1e3e704010c3db9ac54965dc823a",
+        "ncnn/span/spanx4_ch52.bin": "5380d810aaac0b8c89a4fd55ab92eb95ae6b2606e3aefb0382ac62c009981b55",
+        "ncnn/span/spanx4_ch52.param": "7ccc747533e5c7d23ae25c84ba0aa0bf5cf1b221d939e94f81049887661e1053"
+      },
+      "installed_size": 7289976,
+      "sha256": "1398a73017f3bf53aae7a7d35aa98c1d45bbafdc4f9930974e9eb76ad2faac0d"
     }
   },
   "protocol_version": 1

@@ -17,10 +17,11 @@ import numpy as np
 from ._image_batch import read_frames, write_frames
 from ._ncnn_directory_stream import NcnnDirectoryStream
 from ._logging import get_logger
-from .capabilities import choose_codec, choose_engines, detect_gpus
+from .capabilities import choose_codec, quick_capabilities, select_engines
 from .config import ProcessConfig
 from .executor import FrameBatchExecutor
 from .fi import FrameInterpolationEngine, create_fi_engine
+from .i18n import is_chinese, tr
 from .sr import SuperResolutionEngine, create_sr_engine
 
 _log = get_logger(__name__)
@@ -217,11 +218,48 @@ class VideoEnhancer:
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
 
-        cfg.sr_engine, cfg.fi_engine = choose_engines(cfg.sr_engine, cfg.fi_engine)
-        cfg.encode.codec = choose_codec(cfg.encode.codec, detect_gpus())
+        requested_sr = cfg.sr_engine
+        requested_fi = cfg.fi_engine
+        requested_codec = cfg.encode.codec
+        caps = quick_capabilities()
+        cfg.encode.codec = choose_codec(
+            cfg.encode.codec, list(caps.get("gpus", ())),
+            caps.get("encoders", ()))
         cfg.encode.preset = _normalise_preset(cfg.encode.codec, cfg.encode.preset)
+        if requested_codec == "auto":
+            _log.info(tr(
+                "自动选择编码器: %s（已通过后端可用性检测）",
+                "Auto-selected encoder: %s (verified by the backend)"),
+                cfg.encode.codec)
         self._partial_path = self._make_partial_path(cfg.output_path)
         self._probe_input()
+        target_width, target_height = self._requested_output_geometry()
+        selection = select_engines(
+            cfg.sr_engine, cfg.fi_engine,
+            source_width=self._src_width, source_height=self._src_height,
+            target_width=target_width, target_height=target_height,
+            source_fps=self._src_fps, target_fps=cfg.fps,
+            sr_quality=cfg.sr_quality, fi_quality=cfg.fi_quality,
+            fi_multiplier=cfg.fi_multiplier, sr_first=cfg.sr_first,
+            device=cfg.device, ncnn_gpu=cfg.ncnn_gpu,
+            torch_python=cfg.torch_python,
+            capabilities=caps)
+        cfg.sr_engine, cfg.fi_engine = (
+            selection.sr_engine, selection.fi_engine)
+        if requested_sr == "auto":
+            _log.info(tr(
+                "自动选择超分: %s（评分 %d；%s）",
+                "Auto-selected SR: %s (score %d; %s)"),
+                cfg.sr_engine, selection.sr_score,
+                selection.sr_reason_zh if is_chinese()
+                else selection.sr_reason_en)
+        if requested_fi == "auto":
+            _log.info(tr(
+                "自动选择插帧: %s（评分 %d；%s）",
+                "Auto-selected interpolation: %s (score %d; %s)"),
+                cfg.fi_engine, selection.fi_score,
+                selection.fi_reason_zh if is_chinese()
+                else selection.fi_reason_en)
         self._calculate_geometry()
         self._init_engines()
         success = False
@@ -294,11 +332,9 @@ class VideoEnhancer:
         _log.info("输入: %dx%d @ %.3f fps, %s 帧", self._src_width, self._src_height,
                   self._src_fps, self._selected_frames or "未知")
 
-    def _calculate_geometry(self) -> None:
+    def _requested_output_geometry(self) -> Tuple[int, int]:
         cfg = self._config
-        if cfg.sr_engine == "none":
-            width, height = self._src_width, self._src_height
-        elif cfg.width and cfg.height:
+        if cfg.width and cfg.height:
             width, height = cfg.width, cfg.height
         elif cfg.width:
             width = cfg.width
@@ -309,8 +345,14 @@ class VideoEnhancer:
         else:
             width = int(round(self._src_width * cfg.scale))
             height = int(round(self._src_height * cfg.scale))
-        self._dst_width = max(2, width - width % 2)
-        self._dst_height = max(2, height - height % 2)
+        return max(2, width - width % 2), max(2, height - height % 2)
+
+    def _calculate_geometry(self) -> None:
+        cfg = self._config
+        if cfg.sr_engine == "none":
+            self._dst_width, self._dst_height = self._src_width, self._src_height
+        else:
+            self._dst_width, self._dst_height = self._requested_output_geometry()
         if cfg.sr_engine == "dxva_vsr" and (self._dst_width > 4096 or self._dst_height > 2160):
             raise ValueError("DXVA VSR 输出上限为 4096x2160；请降低倍率或改用其他超分引擎")
         _log.info("输出: %dx%d @ %.3f fps", self._dst_width, self._dst_height,
@@ -326,10 +368,12 @@ class VideoEnhancer:
 
     def _fusion_python(self) -> str:
         """Prefer a CUDA Python containing both PyTorch and NV-VFX."""
-        from ._env import get_all_python_envs
+        from ._env import get_cached_python_envs
 
         preferred = self._config.torch_python
-        environments = get_all_python_envs()
+        # Processing may consume an explicit scan cache, but must never launch
+        # a new machine-wide Python scan on the latency-sensitive startup path.
+        environments = get_cached_python_envs()
         usable = [item for item in environments
                   if item.get("torch") and item.get("cuda") and item.get("nvvfx")]
         if preferred:
@@ -420,16 +464,20 @@ class VideoEnhancer:
         if self._try_init_cuda_executor():
             return
         ncnn_gpu = cfg.ncnn_gpu
+        sr_torch_python = cfg.torch_python
+        if cfg.sr_engine in {"flashvsr", "seedvr2"} and sr_torch_python is None:
+            from ._env import get_python_for_feature
+            sr_torch_python = get_python_for_feature(cfg.sr_engine)
         if cfg.sr_engine != "none":
             self._sr_engine = create_sr_engine(
-                cfg.sr_engine, device=cfg.device, torch_python=cfg.torch_python,
+                cfg.sr_engine, device=cfg.device, torch_python=sr_torch_python,
                 ncnn_gpu=ncnn_gpu, quality=cfg.sr_quality)
             self._sr_engine.initialize(self._src_width, self._src_height,
                                        self._dst_width, self._dst_height)
             _log.info("超分就绪: %s", self._sr_engine.name)
         if cfg.fi_engine != "none":
             torch_python = cfg.torch_python
-            if cfg.fi_engine == "rife" and torch_python is None:
+            if cfg.fi_engine in {"rife", "ema_vfi"} and torch_python is None:
                 from ._env import get_torch_python
                 torch_python = get_torch_python()
             self._fi_engine = create_fi_engine(
@@ -544,6 +592,14 @@ class VideoEnhancer:
     def _batch_size(self) -> int:
         if self._batch_executor is not None:
             return self._batch_executor.batch_size
+        preferred = int(getattr(
+            self._sr_engine, "preferred_batch_size", 0) or 0)
+        if preferred:
+            if self._fi_engine is not None and not self._config.sr_first:
+                preferred = (
+                    (preferred - 1) // max(1, self._config.fi_multiplier)
+                ) + 1
+            return max(3, preferred)
         uses_batch = any(
             engine is not None and engine.supports_batch
             for engine in (self._sr_engine, self._fi_engine))

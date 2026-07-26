@@ -52,9 +52,10 @@ class NativeNcnnSpec:
     """Model and runtime options understood by the native worker."""
 
     gpu_id: int = -2
-    rife_model: str = "none"
-    rife_tta: bool = False
-    rife_uhd: bool = False
+    fi_kind: str = "none"
+    fi_model: str = ""
+    fi_tta: bool = False
+    fi_uhd: bool = False
     sr_kind: str = "none"
     sr_param: str = ""
     sr_model: str = ""
@@ -65,8 +66,8 @@ class NativeNcnnSpec:
     sr_tile: int = 0
 
     @property
-    def has_rife(self) -> bool:
-        return self.rife_model != "none"
+    def has_fi(self) -> bool:
+        return self.fi_kind != "none"
 
     @property
     def has_sr(self) -> bool:
@@ -101,9 +102,10 @@ def spec_from_engines(sr_engine, fi_engine,
     }
     if fi_stage is not None:
         values.update(
-            rife_model=fi_stage.model_dir,
-            rife_tta=fi_stage.tta,
-            rife_uhd=fi_stage.uhd,
+            fi_kind=fi_stage.kind,
+            fi_model=fi_stage.model_dir,
+            fi_tta=fi_stage.tta,
+            fi_uhd=fi_stage.uhd,
         )
     if sr_stage is not None:
         values.update(
@@ -185,13 +187,18 @@ class NativeNcnnEngine(FrameBatchExecutor):
     @property
     def name(self) -> str:
         stages = []
-        if self._spec.has_rife:
-            stages.append("RIFE ncnn")
+        if self._spec.has_fi:
+            stages.append(
+                "IFRNet ncnn" if self._spec.fi_kind == "ifrnet"
+                else "RIFE ncnn")
         if self._spec.has_sr:
             stages.append(
-                "Real-CUGAN" if self._spec.sr_kind == "realcugan"
-                else ("ESRGAN" if self._spec.sr_kind == "esrgan"
-                      else "Real-ESRGAN"))
+                {
+                    "realcugan": "Real-CUGAN",
+                    "esrgan": "ESRGAN",
+                    "realesrgan": "Real-ESRGAN",
+                    "span": "SPAN",
+                }.get(self._spec.sr_kind, self._spec.sr_kind))
         return "%s (%s, native Vulkan/shm)" % (
             " + ".join(stages), self._gpu_name or "GPU")
 
@@ -220,16 +227,16 @@ class NativeNcnnEngine(FrameBatchExecutor):
             raise RuntimeError("原生 NCNN Worker 只支持 Vulkan GPU")
         self._src_w, self._src_h = int(src_width), int(src_height)
         self._dst_w, self._dst_h = int(dst_width), int(dst_height)
-        self._multiplier = int(multiplier if self._spec.has_rife else 1)
-        if self._spec.has_rife and self._multiplier < 2:
-            raise ValueError("RIFE NCNN 插帧倍率至少为 2")
+        self._multiplier = int(multiplier if self._spec.has_fi else 1)
+        if self._spec.has_fi and self._multiplier < 2:
+            raise ValueError("NCNN 插帧倍率至少为 2")
 
         input_bytes = self._src_w * self._src_h * 3
         output_bytes = self._dst_w * self._dst_h * 3
         input_budget = 96 * 1024 * 1024
         output_budget = 192 * 1024 * 1024
         affordable_inputs = max(1, input_budget // max(1, input_bytes))
-        if self._spec.has_rife:
+        if self._spec.has_fi:
             affordable_outputs = max(
                 self._multiplier + 1,
                 output_budget // max(1, output_bytes))
@@ -262,9 +269,10 @@ class NativeNcnnEngine(FrameBatchExecutor):
             "--max-output", str(self._max_output_frames),
             "--multiplier", str(self._multiplier),
             "--gpu", str(gpu_id),
-            "--rife-model", self._spec.rife_model,
-            "--rife-tta", "1" if self._spec.rife_tta else "0",
-            "--rife-uhd", "1" if self._spec.rife_uhd else "0",
+            "--fi-kind", self._spec.fi_kind,
+            "--fi-model", self._spec.fi_model or "none",
+            "--fi-tta", "1" if self._spec.fi_tta else "0",
+            "--fi-uhd", "1" if self._spec.fi_uhd else "0",
             "--sr-kind", self._spec.sr_kind,
         ]
         if self._spec.has_sr:
@@ -393,6 +401,13 @@ class NativeNcnnEngine(FrameBatchExecutor):
         if self._stderr_thread and self._stderr_thread.is_alive():
             self._stderr_thread.join(timeout=1)
         self._stderr_thread = None
+        if process is not None:
+            for pipe in (process.stdout, process.stderr):
+                if pipe is not None:
+                    try:
+                        pipe.close()
+                    except OSError:
+                        pass
         for name in ("_shared_input", "_shared_output"):
             value = getattr(self, name, None)
             if value is not None:

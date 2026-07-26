@@ -2,11 +2,14 @@ import os
 import pickle
 import sys
 import unittest
+from unittest import mock
 
 import numpy as np
 
 from light_video_enhancer._image_batch import ncnn_jobs, ncnn_tile
-from light_video_enhancer.capabilities import GPUInfo, _vendor_from_text, choose_codec, quick_capabilities
+from light_video_enhancer.capabilities import (
+    GPUInfo, _vendor_from_text, choose_codec, choose_engines,
+    quick_capabilities, select_engines)
 from light_video_enhancer.cli import _auto_output
 from light_video_enhancer.config import ProcessConfig
 from light_video_enhancer.encoding import canonical_codec, codec_candidates
@@ -36,6 +39,125 @@ class CoreTests(unittest.TestCase):
         intel_expected = "h264_mf" if sys.platform == "win32" else "mpeg4"
         self.assertEqual(choose_codec("auto", [GPUInfo("Radeon", "amd")]), amd_expected)
         self.assertEqual(choose_codec("auto", [GPUInfo("UHD", "intel")]), intel_expected)
+
+        fallback = "h264_mf" if sys.platform == "win32" else "libx264"
+        self.assertEqual(
+            choose_codec(
+                "auto", [GPUInfo("RTX", "nvidia")],
+                available=("h264_mf", "libx264", "mpeg4")),
+            fallback)
+
+    def test_auto_sr_prefers_measured_fast_realesrgan_over_span(self):
+        caps = {
+            "vendors": {"amd"}, "vsr_dll": False,
+            "ncnn_esrgan": True, "ncnn_span": True, "ncnn_cugan": True,
+        }
+        with mock.patch(
+                "light_video_enhancer.capabilities.quick_capabilities",
+                return_value=caps):
+            self.assertEqual(choose_engines("auto", "none")[0], "realesrgan")
+        caps["vsr_dll"] = True
+        caps["vendors"] = {"intel"}
+        with mock.patch(
+                "light_video_enhancer.capabilities.quick_capabilities",
+                return_value=caps):
+            self.assertEqual(choose_engines("auto", "none")[0], "dxva_vsr")
+
+    def test_context_aware_auto_selection(self):
+        caps = {
+            "vendors": {"nvidia"}, "vsr_dll": True,
+            "ncnn_esrgan": True, "ncnn_span": True,
+            "ncnn_cugan": True, "ncnn_ifrnet": True,
+            "ncnn_rife": True, "rife_model": True,
+            "ema_vfi_model": True, "torch_current": False,
+            "nvvfx_current": False,
+        }
+        environment = {"torch": True, "cuda": True, "nvvfx": True}
+        common = {
+            "source_width": 1280, "source_height": 720,
+            "target_width": 2560, "target_height": 1440,
+            "capabilities": caps, "python_environment": environment,
+        }
+
+        fused = select_engines("auto", "auto", **common)
+        self.assertEqual((fused.sr_engine, fused.fi_engine),
+                         ("nvvfx", "rife"))
+        self.assertTrue(fused.external_environment_verified)
+
+        fastest = select_engines(
+            "auto", "auto", sr_quality="fast", fi_quality="fast",
+            **common)
+        self.assertEqual((fastest.sr_engine, fastest.fi_engine),
+                         ("dxva_vsr", "ifrnet_ncnn"))
+
+        sr_first_4k = select_engines(
+            "auto", "auto", source_width=1920, source_height=1080,
+            target_width=3840, target_height=2160, sr_first=True,
+            capabilities=caps, python_environment=environment)
+        self.assertEqual(sr_first_4k.fi_engine, "ifrnet_ncnn")
+
+        no_resize = select_engines(
+            "auto", "auto", source_width=1280, source_height=720,
+            target_width=1280, target_height=720, fi_multiplier=1,
+            capabilities=caps, python_environment=environment)
+        self.assertEqual((no_resize.sr_engine, no_resize.fi_engine),
+                         ("none", "none"))
+
+        no_sr = select_engines(
+            "none", "auto", source_width=1920, source_height=1080,
+            target_width=3840, target_height=2160, sr_first=True,
+            fi_quality="quality", capabilities=caps,
+            python_environment=environment)
+        self.assertEqual(no_sr.fi_engine, "rife")
+
+    def test_auto_selection_obeys_limits_and_manual_choices(self):
+        caps = {
+            "vendors": {"intel"}, "vsr_dll": True,
+            "ncnn_esrgan": True, "ncnn_span": True,
+            "ncnn_cugan": False, "ncnn_ifrnet": True,
+            "ncnn_rife": True, "rife_model": False,
+            "torch_current": False, "nvvfx_current": False,
+        }
+        over_4k = select_engines(
+            "auto", "auto", source_width=2560, source_height=1440,
+            target_width=5120, target_height=2880,
+            capabilities=caps)
+        self.assertEqual(over_4k.sr_engine, "realesrgan")
+        self.assertEqual(over_4k.fi_engine, "ifrnet_ncnn")
+
+        cpu_only = select_engines(
+            "auto", "auto", source_width=1280, source_height=720,
+            target_width=2560, target_height=1440, ncnn_gpu=-1,
+            capabilities={**caps, "vendors": {"amd"}, "vsr_dll": False})
+        self.assertEqual(cpu_only.sr_engine, "lanczos")
+        self.assertIn(cpu_only.fi_engine, {"dis", "optical_flow", "blend"})
+
+        manual = select_engines(
+            "span", "rife_ncnn", source_width=1280, source_height=720,
+            target_width=2560, target_height=1440,
+            capabilities={})
+        self.assertEqual((manual.sr_engine, manual.fi_engine),
+                         ("span", "rife_ncnn"))
+
+    def test_auto_selection_uses_cache_without_scanning(self):
+        caps = {
+            "vendors": {"nvidia"}, "vsr_dll": True,
+            "rife_model": True, "torch_current": False,
+            "nvvfx_current": False,
+        }
+        environment = {"torch": True, "cuda": True, "nvvfx": True}
+        with mock.patch(
+                "light_video_enhancer._env.get_cached_python_env",
+                return_value=environment), mock.patch(
+                    "light_video_enhancer._env.get_all_python_envs") as scan:
+            selected = select_engines(
+                "auto", "auto", source_width=1280, source_height=720,
+                target_width=2560, target_height=1440,
+                torch_python="C:/verified/python.exe",
+                capabilities=caps)
+        scan.assert_not_called()
+        self.assertEqual((selected.sr_engine, selected.fi_engine),
+                         ("nvvfx", "rife"))
 
     def test_codec_aliases_presets_and_format_fallbacks(self):
         self.assertEqual(canonical_codec("x264"), "libx264")
@@ -122,6 +244,17 @@ class CoreTests(unittest.TestCase):
         self.assertIn("LOW", create_sr_engine("nvvfx", quality="fast").name)
         self.assertIn("HIGH", create_sr_engine("nvvfx", quality="quality").name)
         self.assertIn("ultra", create_sr_engine("realcugan", quality="ultra").name)
+        span = create_sr_engine("span", quality="quality", ncnn_gpu=1)
+        span.initialize(32, 24, 64, 48)
+        self.assertIn("ch52", span.name)
+        ema = create_fi_engine("ema_vfi", quality="ultra")
+        self.assertIn("FP32", ema.name)
+        flash = create_sr_engine("flashvsr", quality="fast")
+        self.assertEqual(flash.preferred_batch_size, 29)
+        self.assertIn("experimental", flash.name)
+        seedvr2 = create_sr_engine("seedvr2", quality="balanced")
+        self.assertEqual(seedvr2.preferred_batch_size, 9)
+        self.assertIn("restoration", seedvr2.name)
         classic = create_sr_engine("esrgan", quality="ultra", ncnn_gpu=1)
         classic.initialize(64, 48, 128, 96)
         self.assertIn("ESRGAN classic", classic.name)
@@ -138,6 +271,17 @@ class CoreTests(unittest.TestCase):
         balanced.initialize(64, 48, 256, 192)
         self.assertEqual((balanced._model_name, balanced._native_scale),
                          ("realesrgan-x4plus-anime", 4))
+        quality = create_sr_engine("realesrgan", quality="quality")
+        quality.initialize(64, 48, 128, 96)
+        self.assertEqual((quality._model_name, quality._native_scale),
+                         ("realesr-animevideov3", 2))
+        quality.initialize(64, 48, 256, 192)
+        self.assertEqual((quality._model_name, quality._native_scale),
+                         ("realesrgan-x4plus", 4))
+        ultra = create_sr_engine("realesrgan", quality="ultra")
+        ultra.initialize(64, 48, 128, 96)
+        self.assertEqual((ultra._model_name, ultra._native_scale),
+                         ("realesrgan-x4plus", 4))
 
     def test_ncnn_fallback_tuning_overrides_are_validated(self):
         old_jobs = os.environ.get("LVE_NCNN_JOBS_RIFE")
@@ -193,6 +337,24 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(enhancer._batch_size(), 18)
         enhancer._sr_engine.batch_output_size = (5120, 2880)
         self.assertFalse(enhancer._directory_chain_available())
+
+    def test_temporal_sr_preferred_batch_is_mapped_before_interpolation(self):
+        class PreferredEngine:
+            supports_batch = True
+            preferred_batch_size = 29
+            batch_output_pixels = 0
+
+        config = ProcessConfig(fi_engine="rife", sr_engine="flashvsr",
+                               fi_multiplier=2, sr_first=False)
+        enhancer = VideoEnhancer(config)
+        enhancer._sr_engine = PreferredEngine()
+        enhancer._fi_engine = object()
+        self.assertEqual(enhancer._batch_size(), 15)
+        enhancer._config.sr_first = True
+        self.assertEqual(enhancer._batch_size(), 29)
+        enhancer._fi_engine = None
+        enhancer._config.sr_first = False
+        self.assertEqual(enhancer._batch_size(), 29)
 
     def test_chunk_overlap_preserves_all_pairs(self):
         source = [np.full((1, 1, 1), index, np.uint8) for index in range(8)]

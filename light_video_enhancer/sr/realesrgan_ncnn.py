@@ -70,9 +70,13 @@ class _NcnnESRGANBase(SuperResolutionEngine):
     def _select_model(self) -> Tuple[str, int]:
         if self._classic:
             return "esrgan-x4", 4
+        # Avoid running a native 4x model only to downscale its output for a
+        # 2x/3x job. AnimeVideo-v3 ships native models for those ratios and is
+        # several times faster at video-sized inputs. Keep the deliberately
+        # expensive x4plus oversampling path behind the explicit ultra preset.
+        if self._target_scale < 4 and self._quality != "ultra":
+            return "realesr-animevideov3", self._target_scale
         if self._quality == "balanced":
-            if self._target_scale < 4:
-                return "realesr-animevideov3", self._target_scale
             return "realesrgan-x4plus-anime", 4
         if self._quality in {"quality", "ultra"}:
             return "realesrgan-x4plus", 4

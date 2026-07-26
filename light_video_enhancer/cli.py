@@ -61,10 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-H", "--height", type=int, default=0,
                         help=tr("指定输出高度", "explicit output height"))
     parser.add_argument("--sr-engine", default="auto", choices=[
-        "auto", "dxva_vsr", "nvvfx", "realcugan", "realesrgan", "esrgan",
+        "auto", "dxva_vsr", "nvvfx", "span", "flashvsr", "seedvr2",
+        "realcugan", "realesrgan", "esrgan",
         "bicubic", "lanczos", "none"], help=tr("超分引擎", "super-resolution engine"))
     parser.add_argument("--fi-engine", default="auto", choices=[
-        "auto", "rife", "rife_ncnn", "dis", "optical_flow",
+        "auto", "rife", "ema_vfi", "rife_ncnn", "ifrnet_ncnn", "dis", "optical_flow",
         "torch_flow", "blend", "none"], help=tr("插帧引擎", "interpolation engine"))
     parser.add_argument("--sr-quality", default="quality",
                         choices=["fast", "balanced", "quality", "ultra"],
@@ -111,6 +112,14 @@ def parse_args(argv=None) -> ProcessConfig:
         parser.error(tr(
             "NVIDIA VFX 和 CUDA 光流不能使用 --device cpu",
             "NVIDIA VFX and CUDA optical flow cannot use --device cpu"))
+    if args.fi_engine == "ifrnet_ncnn" and args.ncnn_gpu == -1:
+        parser.error(tr(
+            "IFRNet NCNN 仅支持 Vulkan GPU",
+            "IFRNet NCNN requires a Vulkan GPU"))
+    if args.sr_engine == "span" and args.ncnn_gpu == -1:
+        parser.error(tr(
+            "SPAN NCNN 仅支持 Vulkan GPU",
+            "SPAN NCNN requires a Vulkan GPU"))
     output = args.output or _auto_output(
         args.input, args.scale, args.fi_engine, args.fi_multiplier,
         args.container, args.sr_engine)

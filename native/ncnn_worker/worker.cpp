@@ -14,10 +14,12 @@
 #include <vector>
 
 #include "gpu.h"
+#include "ifrnet.h"
 #include "mat.h"
 #include "realcugan.h"
 #include "realesrgan.h"
 #include "rife.h"
+#include "span.h"
 
 namespace
 {
@@ -170,6 +172,16 @@ int esrgan_tile(int gpuid, int requested)
            budget > 190 ? 64 : 32;
 }
 
+int span_tile(int gpuid, int requested)
+{
+    if (requested >= 64)
+        return requested;
+    const uint32_t budget = ncnn::get_gpu_device(gpuid)->get_heap_budget();
+    if (budget >= 3500)
+        return 0;
+    return budget >= 1500 ? 512 : budget >= 700 ? 320 : 192;
+}
+
 void swap_red_blue(unsigned char* data, size_t pixels)
 {
     for (size_t index = 0; index < pixels; ++index, data += 3)
@@ -202,16 +214,30 @@ public:
         prediction_.create(
             src_w_, src_h_, static_cast<size_t>(3), 3);
 
-        const std::wstring rife_model = required(args, L"rife-model");
-        if (rife_model != L"none")
+        fi_kind_ = required(args, L"fi-kind");
+        const std::wstring fi_model = required(args, L"fi-model");
+        if (fi_kind_ == L"rife")
         {
-            const bool tta = integer(args, L"rife-tta") != 0;
-            const bool uhd = integer(args, L"rife-uhd") != 0;
+            const bool tta = integer(args, L"fi-tta") != 0;
+            const bool uhd = integer(args, L"fi-uhd") != 0;
             rife_.reset(new RIFE(gpuid_, tta, false, uhd, 1, false, true));
             if (multiplier_ < 2)
                 throw std::runtime_error("invalid RIFE multiplier");
-            if (rife_->load(rife_model) != 0)
+            if (rife_->load(fi_model) != 0)
                 throw std::runtime_error("failed to load RIFE model");
+        }
+        else if (fi_kind_ == L"ifrnet")
+        {
+            const bool tta = integer(args, L"fi-tta") != 0;
+            ifrnet_.reset(new IFRNet(gpuid_, tta, 1));
+            if (multiplier_ < 2)
+                throw std::runtime_error("invalid IFRNet multiplier");
+            if (ifrnet_->load(fi_model) != 0)
+                throw std::runtime_error("failed to load IFRNet model");
+        }
+        else if (fi_kind_ != L"none")
+        {
+            throw std::runtime_error("invalid interpolation kind");
         }
 
         sr_kind_ = required(args, L"sr-kind");
@@ -247,6 +273,20 @@ public:
             native_w_ = src_w_ * scale;
             native_h_ = src_h_ * scale;
         }
+        else if (sr_kind_ == L"span")
+        {
+            const int scale = integer(args, L"sr-scale", 2);
+            if (scale != 2 && scale != 4)
+                throw std::runtime_error("invalid SPAN scale");
+            span_.reset(new Span(
+                gpuid_, scale,
+                span_tile(gpuid_, integer(args, L"sr-tile"))));
+            if (span_->load(required(args, L"sr-param"),
+                            required(args, L"sr-model")) != 0)
+                throw std::runtime_error("failed to load SPAN model");
+            native_w_ = src_w_ * scale;
+            native_h_ = src_h_ * scale;
+        }
         else if (sr_kind_ == L"none")
         {
             native_w_ = src_w_;
@@ -270,14 +310,15 @@ public:
     {
         if (count < 1 || count > static_cast<uint32_t>(max_input_))
             throw std::runtime_error("invalid input frame count");
-        if (rife_ && pair_modes.size() != count - 1)
+        if (has_interpolator() && pair_modes.size() != count - 1)
             throw std::runtime_error("invalid pair-mode count");
         if (std::any_of(pair_modes.begin(), pair_modes.end(),
                         [](unsigned char mode) { return mode > 2; }))
             throw std::runtime_error("invalid pair mode");
 
         const uint32_t output_count =
-            (count - 1) * static_cast<uint32_t>(rife_ ? multiplier_ : 1) +
+            (count - 1) *
+            static_cast<uint32_t>(has_interpolator() ? multiplier_ : 1) +
             (skip_first ? 0u : 1u);
         if (output_count > static_cast<uint32_t>(max_output_))
             throw std::runtime_error("output shared memory is too small");
@@ -299,7 +340,7 @@ public:
             swap_red_blue(output_, static_cast<size_t>(count_to_convert) *
                           dst_w_ * dst_h_);
         };
-        if (!rife_)
+        if (!has_interpolator())
         {
             for (uint32_t index = 1; index < count; ++index)
                 emit_source(index, output_index++);
@@ -339,6 +380,11 @@ private:
         return static_cast<size_t>(dst_w_) * dst_h_ * 3;
     }
 
+    bool has_interpolator() const
+    {
+        return rife_ || ifrnet_;
+    }
+
     ncnn::Mat source(uint32_t index) const
     {
         return ncnn::Mat(src_w_, src_h_,
@@ -359,8 +405,13 @@ private:
             return;
         }
 
-        const int status = cugan_ ? cugan_->process(frame, native_frame_)
-                                  : esrgan_->process(frame, native_frame_);
+        int status = 0;
+        if (cugan_)
+            status = cugan_->process(frame, native_frame_);
+        else if (esrgan_)
+            status = esrgan_->process(frame, native_frame_);
+        else
+            status = span_->process(frame, native_frame_);
         if (status != 0)
             throw std::runtime_error("NCNN super resolution failed");
         if (native_w_ == dst_w_ && native_h_ == dst_h_)
@@ -390,9 +441,13 @@ private:
     {
         if (output_index >= static_cast<uint32_t>(max_output_))
             throw std::runtime_error("output shared memory is too small");
-        if (rife_->process(source(pair), source(pair + 1),
-                           timestep, prediction_) != 0)
-            throw std::runtime_error("RIFE interpolation failed");
+        const int status = rife_
+            ? rife_->process(source(pair), source(pair + 1),
+                             timestep, prediction_)
+            : ifrnet_->process(source(pair), source(pair + 1),
+                               timestep, prediction_);
+        if (status != 0)
+            throw std::runtime_error("NCNN interpolation failed");
         enhance(prediction_,
                 output_ + static_cast<size_t>(output_index) * dst_bytes());
     }
@@ -409,10 +464,13 @@ private:
     int max_output_ = 0;
     int multiplier_ = 1;
     int gpuid_ = 0;
+    std::wstring fi_kind_;
     std::wstring sr_kind_;
     std::unique_ptr<RIFE> rife_;
+    std::unique_ptr<IFRNet> ifrnet_;
     std::unique_ptr<RealCUGAN> cugan_;
     std::unique_ptr<RealESRGAN> esrgan_;
+    std::unique_ptr<Span> span_;
     ncnn::Mat prediction_;
     ncnn::Mat native_frame_;
     std::vector<std::vector<unsigned char>> source_cache_;

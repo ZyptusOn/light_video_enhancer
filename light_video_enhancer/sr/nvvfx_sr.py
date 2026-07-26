@@ -10,7 +10,8 @@ import numpy as np
 
 from .base import SuperResolutionEngine
 from .._logging import get_logger
-from .._shared_frames import FramedPipeReader, SharedNDArray, write_framed
+from .._shared_frames import (
+    FramedPipeReader, SharedNDArray, close_process_pipes, write_framed)
 
 _log = get_logger(__name__)
 
@@ -173,6 +174,7 @@ class NVVFX_SR_Engine(SuperResolutionEngine):
             self._reader = None
         if self._stderr_thread and self._stderr_thread.is_alive():
             self._stderr_thread.join(timeout=1)
+        close_process_pipes(process)
         self._release_shared()
 
     def _release_shared(self) -> None:

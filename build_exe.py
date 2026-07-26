@@ -12,6 +12,9 @@ import re
 import subprocess
 import sys
 
+from light_video_enhancer.model_manager import model_weight_paths
+
+
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 PACKAGE_NAME = "light_video_enhancer"
 PACKAGE_DIR = os.path.join(PROJECT_DIR, PACKAGE_NAME)
@@ -19,6 +22,9 @@ LAUNCHER = os.path.join(PROJECT_DIR, "launcher.py")
 BACKEND_LAUNCHER = os.path.join(PROJECT_DIR, "backend_launcher.py")
 OUTPUT_DIR = os.path.join(PROJECT_DIR, "dist")
 MODERN_MANIFEST = os.path.join(PROJECT_DIR, "windows_manifest_win10.xml")
+_MODEL_WEIGHT_PATHS = {
+    path.replace("\\", "/") for path in model_weight_paths()
+}
 
 
 def _project_version():
@@ -31,17 +37,10 @@ def _project_version():
 
 
 def _is_model_weight(path):
-    normalized = path.replace("\\", "/")
-    extension = os.path.splitext(normalized)[1].lower()
-    return (
-        (normalized.startswith("fi/") and extension in {".pkl", ".pth"})
-        or (normalized.startswith("ncnn/rife/") and extension in {".bin", ".param"})
-        or (normalized.startswith("ncnn/realcugan/models") and extension in {".bin", ".param"})
-        or (normalized.startswith("ncnn/realesrgan/models/") and extension in {".bin", ".param"})
-    )
+    return path.replace("\\", "/") in _MODEL_WEIGHT_PATHS
 
 
-def _data_files(profile):
+def _data_files(profile, target):
     relative = [
         "_shared_frames.py",
         "model_manifest.json",
@@ -56,9 +55,18 @@ def _data_files(profile):
         os.path.join("fi", "_rife_model.py"),
         os.path.join("fi", "warplayer.py"),
         os.path.join("fi", "flownet.pkl"),
+        os.path.join("fi", "_ema_vfi_infer.py"),
+        os.path.join("fi", "_ema_vfi_vendor"),
+        os.path.join("fi", "ema_vfi"),
         os.path.join("sr", "_nvvfx_infer.py"),
         "ncnn",
     ]
+    if target == "modern":
+        relative.extend([
+            os.path.join("sr", "_flashvsr_infer.py"),
+            os.path.join("sr", "_seedvr2_infer.py"),
+            "external",
+        ])
     result = []
     for item in relative:
         source = os.path.join(PACKAGE_DIR, item)
@@ -154,8 +162,11 @@ def main() -> None:
         PACKAGE_NAME + ".cli", PACKAGE_NAME + ".capabilities",
         PACKAGE_NAME + ".sr", PACKAGE_NAME + ".sr.dxva_vsr",
         PACKAGE_NAME + ".sr.nvvfx_sr", PACKAGE_NAME + ".sr.realcugan_ncnn",
-        PACKAGE_NAME + ".sr.realesrgan_ncnn", PACKAGE_NAME + ".fi",
-        PACKAGE_NAME + ".fi.rife", PACKAGE_NAME + ".fi.rife_ncnn",
+        PACKAGE_NAME + ".sr.realesrgan_ncnn", PACKAGE_NAME + ".sr.span_ncnn",
+        PACKAGE_NAME + ".sr.flashvsr", PACKAGE_NAME + ".sr.seedvr2",
+        PACKAGE_NAME + ".fi", PACKAGE_NAME + ".fi.rife",
+        PACKAGE_NAME + ".fi.rife_ncnn", PACKAGE_NAME + ".fi.ifrnet_ncnn",
+        PACKAGE_NAME + ".fi.ema_vfi",
         PACKAGE_NAME + ".fi.optical_flow", PACKAGE_NAME + ".fi.dis_flow",
         PACKAGE_NAME + ".fi.blend", PACKAGE_NAME + ".ffmpeg_bridge",
         PACKAGE_NAME + ".model_manager", PACKAGE_NAME + ".frontend_protocol",
@@ -186,7 +197,7 @@ def main() -> None:
         excluded.extend([PACKAGE_NAME + ".gui", "tkinter", "_tkinter", "idlelib", "turtle"])
     for module in excluded:
         command.extend(["--exclude-module", module])
-    command.extend(_data_files(args.profile))
+    command.extend(_data_files(args.profile, target))
     command.append(BACKEND_LAUNCHER if args.backend else LAUNCHER)
     build_env = dict(os.environ)
     build_env["PYTHONNOUSERSITE"] = "1"

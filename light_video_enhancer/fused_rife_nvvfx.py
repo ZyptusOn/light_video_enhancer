@@ -10,7 +10,8 @@ import numpy as np
 
 from ._logging import get_logger
 from ._paths import get_pkg_file
-from ._shared_frames import FramedPipeReader, SharedNDArray, write_framed
+from ._shared_frames import (
+    FramedPipeReader, SharedNDArray, close_process_pipes, write_framed)
 from .executor import FrameBatchExecutor
 from .fi._scene_detect import classify_pair
 from .fi.rife import _find_weight_file
@@ -213,6 +214,7 @@ class FusedRifeNvvfxEngine(FrameBatchExecutor):
             self._reader = None
         if self._stderr_thread and self._stderr_thread.is_alive():
             self._stderr_thread.join(timeout=1)
+        close_process_pipes(process)
         for name in ("_shared_input", "_shared_output"):
             value = getattr(self, name, None)
             if value is not None:

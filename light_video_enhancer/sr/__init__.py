@@ -17,6 +17,15 @@ def create_sr_engine(engine_name: str, device: str = "auto",
     if engine_name == "realcugan":
         from .realcugan_ncnn import RealCUGANEngine
         return RealCUGANEngine(device=device, gpu_id=ncnn_gpu, quality=quality)
+    if engine_name == "span":
+        from .span_ncnn import SPANNcnnEngine
+        return SPANNcnnEngine(device=device, gpu_id=ncnn_gpu, quality=quality)
+    if engine_name == "seedvr2":
+        from .seedvr2 import SeedVR2Engine
+        return SeedVR2Engine(device=device, torch_python=torch_python, quality=quality)
+    if engine_name == "flashvsr":
+        from .flashvsr import FlashVSREngine
+        return FlashVSREngine(device=device, torch_python=torch_python, quality=quality)
     if engine_name in {"realesrgan", "esrgan"}:
         from .realesrgan_ncnn import ESRGANEngine, RealESRGANEngine
         engine_class = ESRGANEngine if engine_name == "esrgan" else RealESRGANEngine
