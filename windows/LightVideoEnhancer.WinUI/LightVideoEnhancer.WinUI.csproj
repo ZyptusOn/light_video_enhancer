@@ -50,8 +50,37 @@
 
   <PropertyGroup>
     <PublishReadyToRun>False</PublishReadyToRun>
-    <PublishTrimmed>False</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">True</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' != 'Release'">False</PublishTrimmed>
+    <TrimMode Condition="'$(Configuration)' == 'Release'">partial</TrimMode>
     <DebugType Condition="'$(Configuration)' == 'Release'">None</DebugType>
     <DebugSymbols Condition="'$(Configuration)' == 'Release'">False</DebugSymbols>
   </PropertyGroup>
+
+  <!--
+    The Windows App SDK framework payload supplies the registration manifest
+    required by an unpackaged, self-contained WinUI app. It also carries optional
+    AI/ML and Widgets workloads that this GUI never calls.
+  -->
+  <Target Name="ExcludeUnusedWindowsAppSdkWorkloads"
+          BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromMsix"
+          AfterTargets="ExtractMicrosoftWindowsAppSDKMsixFiles">
+    <ItemGroup>
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\onnxruntime*.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\DirectML.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\Microsoft.Windows.AI.*" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\Microsoft.Graphics.*" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\Microsoft.Windows.Widgets.*" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\NpuDetect\**" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\workloads*.json" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup Condition="'$(PublishTrimmed)' == 'true'">
+    <TrimmerRootAssembly Include="Microsoft.Windows.SDK.NET" />
+    <TrimmerRootAssembly Include="Microsoft.WinUI" />
+    <TrimmerRootAssembly Include="Microsoft.InteractiveExperiences.Projection" />
+    <TrimmerRootAssembly Include="WinRT.Runtime" />
+    <TrimmerRootAssembly Include="LightVideoEnhancer.WinUI" />
+  </ItemGroup>
 </Project>

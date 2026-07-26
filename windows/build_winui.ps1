@@ -66,6 +66,7 @@ foreach ($item in $profiles) {
     New-Item -ItemType Directory -Path $output -Force | Out-Null
     Copy-Item -LiteralPath $frontendSource -Destination $output -Force
     Copy-Item -LiteralPath $backend -Destination (Join-Path $output "LightVideoEnhancer-Backend.exe") -Force
+    Copy-Item -LiteralPath (Join-Path $root "CLI_GUIDE.md") -Destination $output -Force
 
     $frontend = Join-Path $output "LightVideoEnhancer.WinUI.exe"
     if (-not (Test-Path -LiteralPath $frontend)) {

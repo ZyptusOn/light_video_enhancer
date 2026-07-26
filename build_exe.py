@@ -170,6 +170,7 @@ def main() -> None:
         PACKAGE_NAME + ".fi.optical_flow", PACKAGE_NAME + ".fi.dis_flow",
         PACKAGE_NAME + ".fi.blend", PACKAGE_NAME + ".ffmpeg_bridge",
         PACKAGE_NAME + ".model_manager", PACKAGE_NAME + ".frontend_protocol",
+        PACKAGE_NAME + ".backend_main", PACKAGE_NAME + ".cli_app",
         PACKAGE_NAME + "._paths",
     ]
     if not args.backend:

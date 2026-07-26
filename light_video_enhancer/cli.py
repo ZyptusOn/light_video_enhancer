@@ -42,16 +42,58 @@ def _ncnn_gpu(value: str) -> Optional[int]:
     return parsed
 
 
+class _HelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                     argparse.RawDescriptionHelpFormatter):
+    """Readable examples plus defaults, in either supported language."""
+
+
+def _help_epilog(program: str) -> str:
+    return tr(
+        """常用示例：
+  {0} input.mp4
+  {0} input.mp4 -o output.mp4 --scale 2 --fi-multiplier 2
+  {0} input.mp4 --sr-engine nvvfx --fi-engine rife --codec hevc_nvenc
+
+独立命令：
+  无参数 / --interactive       打开交互向导
+  --system-info [--deep]      显示系统和后端信息
+  --capabilities-json         输出供前端使用的能力 JSON
+  --environments-json        列出已缓存的 Python/PyTorch 环境
+  --models-json              显示模型包状态
+
+语言可放在任意命令前：--language zh-CN 或 --language en-US
+完整说明见随程序提供的 CLI_GUIDE.md。""".format(program),
+        """Examples:
+  {0} input.mp4
+  {0} input.mp4 -o output.mp4 --scale 2 --fi-multiplier 2
+  {0} input.mp4 --sr-engine nvvfx --fi-engine rife --codec hevc_nvenc
+
+Standalone commands:
+  no arguments / --interactive  open the interactive wizard
+  --system-info [--deep]        show system and backend information
+  --capabilities-json           print the frontend capability JSON
+  --environments-json           list cached Python/PyTorch environments
+  --models-json                 show model-pack status
+
+Put --language zh-CN or --language en-US before any command.
+See the bundled CLI_GUIDE.md for the complete guide.""".format(program))
+
+
 def build_parser() -> argparse.ArgumentParser:
+    program = (os.path.basename(sys.executable)
+               if getattr(sys, "frozen", False) else "lve")
     parser = argparse.ArgumentParser(
-        prog="lve",
+        prog=program,
         description=tr(
             "Light Video Enhancer - Windows 视频超分、插帧与转码",
             "Light Video Enhancer - video super resolution, interpolation, and transcoding for Windows"),
         epilog=tr(
-            "全局语言选项：--language zh-CN|en-US（可放在任意位置）",
-            "Global language option: --language zh-CN|en-US (accepted anywhere)"),
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+            "全局语言：--language zh-CN|en-US；无参数双击后端 EXE 可进入交互向导。",
+            "Global language: --language zh-CN|en-US. Launch the backend EXE without arguments for the interactive wizard."),
+        formatter_class=_HelpFormatter)
+    parser.epilog = _help_epilog(program)
+    parser._positionals.title = tr("输入", "Input")
+    parser._optionals.title = tr("处理与编码选项", "Processing and encoding options")
     parser.add_argument("input", help=tr("输入视频路径", "input video path"))
     parser.add_argument("-o", "--output", help=tr("输出视频路径", "output video path"))
     parser.add_argument("-s", "--scale", type=float, default=2.0,

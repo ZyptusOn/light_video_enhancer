@@ -337,13 +337,13 @@
                           HorizontalContentAlignment="Stretch">
                 <StackPanel MaxWidth="1000" HorizontalAlignment="Center" Spacing="16">
         <StackPanel Spacing="4">
-            <TextBlock FontSize="30" FontWeight="SemiBold" Text="模型与下载" />
-            <TextBlock Style="{StaticResource CaptionStyle}"
+            <TextBlock x:Name="ModelsTitle" FontSize="30" FontWeight="SemiBold" Text="模型与下载" />
+            <TextBlock x:Name="ModelsDescription" Style="{StaticResource CaptionStyle}"
                        Text="轻量版可按需下载权重；全量版使用同一界面并将内置权重显示为已安装。模型保存在当前用户目录，程序升级不会覆盖。" />
         </StackPanel>
         <Border Style="{StaticResource CardStyle}">
             <StackPanel Spacing="12">
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="下载源" />
+                <TextBlock x:Name="ModelSourcesTitle" Style="{StaticResource SectionTitleStyle}" Text="下载源" />
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="220" />
@@ -352,13 +352,13 @@
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="ModelSourceBox" Header="来源" SelectedIndex="0"
                               SelectionChanged="ModelSourceBox_SelectionChanged">
-                        <ComboBoxItem Content="官方（GitHub / Hugging Face）" Tag="github" />
-                        <ComboBoxItem Content="镜像（GitHub Proxy / HF Mirror）" Tag="mirror" />
-                        <ComboBoxItem Content="自定义地址" Tag="custom" />
+                        <ComboBoxItem x:Name="OfficialModelSourceItem" Content="官方（GitHub / Hugging Face）" Tag="github" />
+                        <ComboBoxItem x:Name="MirrorModelSourceItem" Content="镜像（GitHub Proxy / HF Mirror）" Tag="mirror" />
+                        <ComboBoxItem x:Name="CustomModelSourceItem" Content="自定义地址" Tag="custom" />
                     </ComboBox>
                     <TextBox x:Name="CustomSourceBox" Grid.Column="1" Header="自定义基础地址或 {archive} 模板"
                              IsEnabled="False" PlaceholderText="https://example.com/models" />
-                    <Button Grid.Column="2" Margin="0,26,0,0" Click="RefreshModels_Click" Content="刷新状态" />
+                    <Button x:Name="RefreshModelsButton" Grid.Column="2" Margin="0,26,0,0" Click="RefreshModels_Click" Content="刷新状态" />
                 </Grid>
                 <TextBlock x:Name="ModelRootText" Style="{StaticResource CaptionStyle}" FontFamily="Consolas" />
             </StackPanel>
@@ -382,10 +382,10 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
-                            <Button Content="导入 ZIP" Tag="{Binding Id}" Click="ImportModel_Click" />
-                            <Button Content="移除" Tag="{Binding Id}" Click="RemoveModel_Click"
+                            <Button Content="{Binding ImportText}" Tag="{Binding Id}" Click="ImportModel_Click" />
+                            <Button Content="{Binding RemoveText}" Tag="{Binding Id}" Click="RemoveModel_Click"
                                     IsEnabled="{Binding CanRemove}" />
-                            <Button Style="{StaticResource AccentButtonStyle}" Content="下载"
+                            <Button Style="{StaticResource AccentButtonStyle}" Content="{Binding DownloadText}"
                                     Tag="{Binding Id}" Click="DownloadModel_Click"
                                     IsEnabled="{Binding CanDownload}" />
                         </StackPanel>
@@ -415,8 +415,8 @@
                             <ComboBox x:Name="LanguageBox" Header="界面语言" SelectedIndex="0"
                                       SelectionChanged="LanguageBox_SelectionChanged" Width="220" HorizontalAlignment="Left">
                                 <ComboBoxItem Content="跟随系统" Tag="system" />
-                                <ComboBoxItem Content="中文" Tag="zh-CN" />
-                                <ComboBoxItem Content="英文" Tag="en-US" />
+                                <ComboBoxItem x:Name="ChineseLanguageItem" Content="中文" Tag="zh-CN" />
+                                <ComboBoxItem x:Name="EnglishLanguageItem" Content="English" Tag="en-US" />
                             </ComboBox>
                         </StackPanel>
                     </Border>

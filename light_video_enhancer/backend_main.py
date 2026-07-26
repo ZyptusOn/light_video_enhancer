@@ -1,16 +1,23 @@
+"""GUI-free command-line entry point used by the standalone backend EXE."""
+
+import ctypes
 import json
+import os
 import sys
 import threading
+from typing import Iterable, List, Optional
 
 from ._logging import get_logger
 
-_log = get_logger("main")
+
+_log = get_logger("backend")
 _PROGRESS_PREFIX = "__LVE_PROGRESS__"
 
 
-def _remove_flag(argv, flag):
-    present = flag in argv
-    return present, [value for value in argv if value != flag]
+def _remove_flag(argv: Iterable[str], flag: str):
+    values = list(argv)
+    present = flag in values
+    return present, [value for value in values if value != flag]
 
 
 def _progress_json(stage: str, current: int, total: int) -> None:
@@ -19,7 +26,13 @@ def _progress_json(stage: str, current: int, total: int) -> None:
 
 
 def _configure_stdio() -> None:
-    """Keep the JSON-line protocol stable in frozen and legacy consoles."""
+    """Use UTF-8 for redirected output and both Windows console languages."""
+    if os.name == "nt":
+        try:
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        except (AttributeError, OSError, ValueError):
+            pass
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is None:
@@ -41,54 +54,52 @@ def _listen_for_control(enhancer) -> None:
         return
 
 
-
-
-def main(cli_only: bool = False) -> None:
+def main(argv: Optional[List[str]] = None) -> None:
+    """Run the complete CLI without importing Tkinter or any GUI module."""
     _configure_stdio()
-    argv = sys.argv[1:]
+    values = list(sys.argv[1:] if argv is None else argv)
+
     from .i18n import extract_language
     try:
-        _, argv = extract_language(argv)
+        _, values = extract_language(values)
     except ValueError as exc:
         _log.error("%s", exc)
         raise SystemExit(2)
+
     from .frontend_protocol import handle_frontend_command
     try:
-        if handle_frontend_command(argv, _progress_json):
+        if handle_frontend_command(values, _progress_json):
             return
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         _log.error("%s", exc)
         raise SystemExit(1)
 
-    if not argv and cli_only:
+    if not values or values == ["--interactive"]:
         from .cli_app import interactive_arguments
-        argv = interactive_arguments()
-        if not argv:
+        values = interactive_arguments()
+        if not values:
             return
-    elif argv == ["--interactive"]:
-        from .cli_app import interactive_arguments
-        argv = interactive_arguments()
-        if not argv:
-            return
-    elif not argv or argv == ["--gui"] or argv == ["-g"]:
-        from .gui import main as gui_main
-        gui_main()
-        return
-    if "--system-info" in argv:
+
+    if "--system-info" in values:
         from .utils import print_system_info
-        print_system_info(deep="--deep" in argv)
+        print_system_info(deep="--deep" in values)
         return
-    if argv == ["--version"]:
+    if values == ["--version"]:
         from . import __version__
         print(__version__)
         return
-    progress_json, argv = _remove_flag(argv, "--progress-json")
-    control_stdin, argv = _remove_flag(argv, "--control-stdin")
+
+    progress_json, values = _remove_flag(values, "--progress-json")
+    control_stdin, values = _remove_flag(values, "--control-stdin")
+
+    # Parse first so --help and syntax errors stay fast and dependency-light.
     from .cli import parse_args
+    config = parse_args(values)
+
     from .pipeline import ProcessingCancelled, VideoEnhancer
     try:
         enhancer = VideoEnhancer(
-            parse_args(argv), progress_callback=_progress_json if progress_json else None)
+            config, progress_callback=_progress_json if progress_json else None)
         if control_stdin:
             threading.Thread(
                 target=_listen_for_control, args=(enhancer,),
@@ -97,14 +108,11 @@ def main(cli_only: bool = False) -> None:
     except ProcessingCancelled as exc:
         _log.warning("%s", exc)
         raise SystemExit(130)
-    except (FileNotFoundError, FileExistsError, ImportError, RuntimeError, ValueError) as exc:
+    except (FileNotFoundError, FileExistsError, ImportError,
+            RuntimeError, ValueError) as exc:
         _log.error("%s", exc)
         raise SystemExit(1)
     except KeyboardInterrupt:
         from .i18n import tr
         _log.warning(tr("用户取消", "Cancelled by user"))
         raise SystemExit(130)
-
-
-if __name__ == "__main__":
-    main()

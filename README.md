@@ -147,6 +147,20 @@ Real-ESRGAN 质量档位：
 - 低依赖稳定：`DIS -> Lanczos -> H.264 Media Foundation/x264`
 - 重型修复：手动选择 `FlashVSR` 或 `SeedVR2`，不建议与插帧同时启用。
 
+### 便携后端 CLI
+
+WinUI 包中的 `LightVideoEnhancer-Backend.exe` 也可以作为独立 PowerShell / Windows 控制台程序使用，不依赖前端，也不包含 Tkinter 或旧 GUI。无参数启动进入交互向导；常用命令如下：
+
+```powershell
+.\LightVideoEnhancer-Backend.exe --help
+.\LightVideoEnhancer-Backend.exe --system-info
+.\LightVideoEnhancer-Backend.exe input.mp4 -o output.mp4 --scale 2 --fi-multiplier 2 --codec auto --overwrite
+```
+
+CLI 的向导、帮助、处理日志与错误会按 Windows 用户界面语言自动选择中文或英文，也可用 `--language zh-CN` / `--language en-US` 明确指定。`--help` 清晰分组输入与处理编码参数，并单独列出环境、模型和前端协议命令及可直接复制的例子。
+
+完整说明见 [`CLI_GUIDE.md`](CLI_GUIDE.md)。
+
 ### 从源码运行
 
 ```powershell

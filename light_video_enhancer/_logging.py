@@ -15,6 +15,26 @@ _ROOT_LOGGER_NAME = "lve"
 
 _logger: Optional[logging.Logger] = None
 
+class _LocalizationFilter(logging.Filter):
+    """Translate legacy backend records before any console or GUI formatter."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from .log_i18n import translate_log_template
+
+        record.msg = translate_log_template(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                translate_log_template(str(value))
+                if isinstance(value, BaseException) else translate_log_template(value)
+                for value in record.args
+            )
+        elif isinstance(record.args, dict):
+            record.args = {
+                key: translate_log_template(value)
+                for key, value in record.args.items()
+            }
+        return True
+
 
 def _init_root_logger() -> logging.Logger:
     global _logger
@@ -26,8 +46,9 @@ def _init_root_logger() -> logging.Logger:
     _logger.propagate = False
 
     if not _logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler(sys.stderr)
         handler.setLevel(logging.DEBUG)
+        handler.addFilter(_LocalizationFilter())
         handler.setFormatter(logging.Formatter(
             "[%(levelname)-7s] %(message)s"
         ))
@@ -47,10 +68,12 @@ def set_gui_handler(handler: Optional[logging.Handler]) -> None:
     root = _init_root_logger()
     root.handlers.clear()
     if handler is not None:
+        handler.addFilter(_LocalizationFilter())
         root.addHandler(handler)
     else:
-        default_handler = logging.StreamHandler(sys.stdout)
+        default_handler = logging.StreamHandler(sys.stderr)
         default_handler.setLevel(logging.DEBUG)
+        default_handler.addFilter(_LocalizationFilter())
         default_handler.setFormatter(logging.Formatter(
             "[%(levelname)-7s] %(message)s"
         ))

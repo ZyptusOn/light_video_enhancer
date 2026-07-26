@@ -45,7 +45,7 @@ public static class Localization
             ["导入 ZIP"] = "Import ZIP", ["移除"] = "Remove", ["下载"] = "Download",
             ["打开 GitHub 仓库"] = "Open GitHub repository", ["界面主题"] = "Theme",
             ["跟随系统"] = "Use system setting", ["浅色"] = "Light", ["深色"] = "Dark",
-            ["界面语言"] = "Language", ["中文"] = "Chinese", ["英文"] = "English",
+            ["界面语言"] = "Language",
             ["在独立处理进程中组合超分、插帧与硬件编码。界面关闭或取消时不会把 CUDA / Vulkan 运行时留在主进程。"] =
                 "Combine super resolution, interpolation, and hardware encoding in an isolated process. Closing or cancelling the UI leaves no CUDA or Vulkan runtime in the frontend process.",
             ["可将视频直接拖到此卡片。选择输入后会自动建议输出文件名。"] =

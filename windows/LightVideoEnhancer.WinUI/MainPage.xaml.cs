@@ -19,6 +19,9 @@ public sealed class ModelPackViewModel
     public required string DisplayName { get; init; }
     public required string Description { get; init; }
     public required string StatusText { get; init; }
+    public required string ImportText { get; init; }
+    public required string RemoveText { get; init; }
+    public required string DownloadText { get; init; }
     public bool CanDownload { get; init; }
     public bool CanRemove { get; init; }
 }
@@ -52,7 +55,7 @@ public sealed partial class MainPage : Page
             return;
         }
         _loaded = true;
-        Localization.Apply(this, IsChinese);
+        ApplyLocalization();
         UpdateExternalEngineAvailability();
         RenderBackendPath();
         await RefreshCapabilitiesAsync();
@@ -66,6 +69,26 @@ public sealed partial class MainPage : Page
         EnvironmentView.Visibility = tag == "environment" ? Visibility.Visible : Visibility.Collapsed;
         ModelsView.Visibility = tag == "models" ? Visibility.Visible : Visibility.Collapsed;
         AboutView.Visibility = tag == "about" ? Visibility.Visible : Visibility.Collapsed;
+        FrameworkElement selectedView = tag switch
+        {
+            "environment" => EnvironmentView,
+            "models" => ModelsView,
+            "about" => AboutView,
+            _ => ProcessView,
+        };
+        if (_loaded)
+        {
+            // Collapsed views do not have a complete WinUI visual tree. Force the
+            // selected page to materialize, then run one low-priority pass after
+            // layout so every lazily-created label is translated.
+            selectedView.UpdateLayout();
+            ApplyLocalization();
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                selectedView.UpdateLayout();
+                ApplyLocalization();
+            });
+        }
     }
 
     private async void BrowseInput_Click(object sender, RoutedEventArgs e)
@@ -270,7 +293,8 @@ public sealed partial class MainPage : Page
         }
         try
         {
-            BackendCommandResult result = await _backend.QueryAsync("--models-json");
+            BackendCommandResult result = await _backend.QueryAsync(
+                "--language", _language, "--models-json");
             if (result.ExitCode != 0)
             {
                 throw new InvalidOperationException(result.StandardError.Trim());
@@ -342,7 +366,9 @@ public sealed partial class MainPage : Page
         ModelInfoBar.IsOpen = false;
         try
         {
-            int exitCode = await _backend.RunAsync(arguments);
+            List<string> localizedArguments = ["--language", _language];
+            localizedArguments.AddRange(arguments);
+            int exitCode = await _backend.RunAsync(localizedArguments);
             if (exitCode != 0)
             {
                 throw new InvalidOperationException(IsChinese ? $"模型命令失败（退出代码 {exitCode}）。" : $"Model command failed (exit code {exitCode}).");
@@ -405,6 +431,9 @@ public sealed partial class MainPage : Page
                 DisplayName = StringProperty(names, language, StringProperty(names, "en-US", "?")),
                 Description = StringProperty(descriptions, language, ""),
                 StatusText = statusText,
+                ImportText = chinese ? "导入 ZIP" : "Import ZIP",
+                RemoveText = chinese ? "移除" : "Remove",
+                DownloadText = chinese ? "下载" : "Download",
                 CanDownload = !installed,
                 CanRemove = status is "downloaded" or "partial",
             });
@@ -565,11 +594,38 @@ public sealed partial class MainPage : Page
         {
             return;
         }
-        Localization.Apply(this, IsChinese);
+        ApplyLocalization();
         UpdateExternalEngineAvailability();
         RenderBackendPath();
         await RefreshModelsAsync();
         await RefreshCapabilitiesAsync();
+    }
+
+    private void ApplyLocalization()
+    {
+        Localization.Apply(this, IsChinese);
+
+        // Language names are autonyms and must never be translated.
+        ChineseLanguageItem.Content = "中文";
+        EnglishLanguageItem.Content = "English";
+
+        // Data-template content is created after the initial visual-tree pass,
+        // so keep the model page explicit as well as refreshing its view models.
+        ModelsTitle.Text = T("模型与下载", "Models & downloads");
+        ModelsDescription.Text = T(
+            "轻量版可按需下载权重；全量版使用同一界面并将内置权重显示为已安装。模型保存在当前用户目录，程序升级不会覆盖。",
+            "The Lite package downloads weights on demand. The Full package uses the same UI and shows bundled weights as installed. User models survive application updates.");
+        ModelSourcesTitle.Text = T("下载源", "Download source");
+        ModelSourceBox.Header = T("来源", "Source");
+        OfficialModelSourceItem.Content = T("官方（GitHub / Hugging Face）", "Official (GitHub / Hugging Face)");
+        MirrorModelSourceItem.Content = T("镜像（GitHub Proxy / HF Mirror）", "Mirror (GitHub Proxy / HF Mirror)");
+        CustomModelSourceItem.Content = T("自定义地址", "Custom URL");
+        CustomSourceBox.Header = T("自定义基础地址或 {archive} 模板", "Custom base URL or {archive} template");
+        RefreshModelsButton.Content = T("刷新状态", "Refresh status");
+        if (_modelPacks.Count == 0)
+        {
+            ModelStatusText.Text = T("正在读取模型状态…", "Reading model status…");
+        }
     }
 
     private bool IsChinese => _language == "zh-CN";
