@@ -54,6 +54,20 @@ def _listen_for_control(enhancer) -> None:
         return
 
 
+def _wait_for_interactive_close() -> None:
+    """Keep an Explorer-launched console open long enough to read an error."""
+    isatty = getattr(sys.stdin, "isatty", None)
+    if not callable(isatty) or not isatty():
+        return
+    from .i18n import tr
+    try:
+        input(tr(
+            "\n处理未能开始。按 Enter 关闭窗口。",
+            "\nProcessing could not start. Press Enter to close this window."))
+    except (EOFError, KeyboardInterrupt, OSError):
+        pass
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     """Run the complete CLI without importing Tkinter or any GUI module."""
     _configure_stdio()
@@ -66,6 +80,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         _log.error("%s", exc)
         raise SystemExit(2)
 
+    interactive_session = not values or values == ["--interactive"]
     from .frontend_protocol import handle_frontend_command
     try:
         if handle_frontend_command(values, _progress_json):
@@ -111,8 +126,15 @@ def main(argv: Optional[List[str]] = None) -> None:
     except (FileNotFoundError, FileExistsError, ImportError,
             RuntimeError, ValueError) as exc:
         _log.error("%s", exc)
+        if interactive_session:
+            _wait_for_interactive_close()
         raise SystemExit(1)
     except KeyboardInterrupt:
         from .i18n import tr
         _log.warning(tr("用户取消", "Cancelled by user"))
         raise SystemExit(130)
+    except Exception as exc:
+        _log.exception("未预期的 CLI 错误: %s", exc)
+        if interactive_session:
+            _wait_for_interactive_close()
+        raise SystemExit(1)

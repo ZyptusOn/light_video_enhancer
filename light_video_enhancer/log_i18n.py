@@ -27,6 +27,10 @@ _LOG_TEMPLATES: Dict[str, str] = {
     "融合快速路径就绪: %s": "Fused fast path ready: %s",
     "融合 CUDA 快速路径不可用，回退到独立后端: %s":
         "Fused CUDA fast path unavailable; falling back to separate backends: %s",
+    "正在按需扫描 CUDA PyTorch / NV-VFX Python 环境...":
+        "Scanning for a CUDA PyTorch / NV-VFX Python environment on demand...",
+    "自动选择 Python 环境: %s":
+        "Automatically selected Python environment: %s",
     "旧 NCNN 引擎释放失败，常驻 Worker 仍可继续":
         "The old NCNN engine could not be released; the persistent worker can continue",
     "NCNN 常驻快速路径就绪: %s": "Persistent NCNN fast path ready: %s",
@@ -42,6 +46,7 @@ _LOG_TEMPLATES: Dict[str, str] = {
     "保留未完成输出: %s": "Kept incomplete output: %s",
     "引擎释放失败": "Engine cleanup failed",
     "无法写入环境缓存": "Could not write the environment cache",
+    "无法写入环境缓存: %s": "Could not write the environment cache: %s",
     "Python 环境检测失败: %s": "Python environment probe failed: %s",
     "编码器 %s 不可用，已回退到 %s":
         "Encoder %s is unavailable; fell back to %s",
@@ -91,6 +96,8 @@ _ERROR_PHRASES: Tuple[Tuple[str, str], ...] = (
     ("融合 Worker 输入尺寸不一致", "Fused worker input dimensions do not match"),
     ("融合 Worker 返回帧数错误", "Fused worker returned an incorrect frame count"),
     ("融合批次过大", "Fused batch is too large"),
+    ("没有找到同时支持 CUDA PyTorch 与 nvvfx 的 Python 环境",
+     "No Python environment with both CUDA PyTorch and nvvfx was found"),
     ("RIFE 插帧倍率至少为 2", "RIFE interpolation multiplier must be at least 2"),
     ("IFRNet 插帧倍率至少为 2", "IFRNet interpolation multiplier must be at least 2"),
     ("缺少 RIFE 权重", "RIFE weights are missing"),

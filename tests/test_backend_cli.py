@@ -3,6 +3,7 @@ import contextlib
 import io
 import pathlib
 import unittest
+from unittest import mock
 
 from light_video_enhancer import backend_main
 
@@ -51,6 +52,20 @@ class StandaloneBackendTests(unittest.TestCase):
         self.assertIn("处理与编码选项", rendered)
         self.assertIn("独立命令：", rendered)
         self.assertIn("常用示例：", rendered)
+
+    def test_interactive_failure_waits_for_real_console(self):
+        console_input = mock.Mock()
+        console_input.isatty.return_value = True
+        with mock.patch.object(backend_main.sys, "stdin", console_input), \
+                mock.patch("builtins.input", return_value="") as read:
+            backend_main._wait_for_interactive_close()
+        read.assert_called_once()
+
+    def test_redirected_failure_does_not_wait(self):
+        with mock.patch.object(backend_main.sys, "stdin", io.StringIO()), \
+                mock.patch("builtins.input") as read:
+            backend_main._wait_for_interactive_close()
+        read.assert_not_called()
 
 
 if __name__ == "__main__":

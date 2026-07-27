@@ -371,8 +371,9 @@ class VideoEnhancer:
         from ._env import get_cached_python_envs
 
         preferred = self._config.torch_python
-        # Processing may consume an explicit scan cache, but must never launch
-        # a new machine-wide Python scan on the latency-sensitive startup path.
+        preferred_path = os.path.abspath(preferred) if preferred else None
+        # Consume an explicit scan cache first; an on-demand scan is only used
+        # below when a frozen CLI explicitly needs this external runtime.
         environments = get_cached_python_envs()
         usable = [item for item in environments
                   if item.get("torch") and item.get("cuda") and item.get("nvvfx")]
@@ -383,9 +384,20 @@ class VideoEnhancer:
                     return item["exe"]
         if usable:
             return usable[0]["exe"]
-        if not getattr(sys, "frozen", False):
-            return preferred or sys.executable
-        raise RuntimeError("没有同时提供 CUDA PyTorch 与 nvvfx 的 Python 环境")
+        # An explicit CLI choice is authoritative.  The fused worker will
+        # validate its imports and cleanly fall back if the environment is not
+        # suitable, so no prior GUI scan should be required.
+        if preferred_path and os.path.isfile(preferred_path):
+            return preferred_path
+        if getattr(sys, "frozen", False):
+            from ._env import get_python_for_feature
+            _log.info("正在按需扫描 CUDA PyTorch / NV-VFX Python 环境...")
+            detected = get_python_for_feature("nvvfx")
+            if detected:
+                _log.info("自动选择 Python 环境: %s", detected)
+                return detected
+            raise RuntimeError("没有找到同时支持 CUDA PyTorch 与 nvvfx 的 Python 环境")
+        return preferred or sys.executable
 
     def _try_init_cuda_executor(self) -> bool:
         cfg = self._config
@@ -465,7 +477,10 @@ class VideoEnhancer:
             return
         ncnn_gpu = cfg.ncnn_gpu
         sr_torch_python = cfg.torch_python
-        if cfg.sr_engine in {"flashvsr", "seedvr2"} and sr_torch_python is None:
+        external_sr_runtime = (
+            cfg.sr_engine in {"flashvsr", "seedvr2"}
+            or (cfg.sr_engine == "nvvfx" and getattr(sys, "frozen", False)))
+        if external_sr_runtime and sr_torch_python is None:
             from ._env import get_python_for_feature
             sr_torch_python = get_python_for_feature(cfg.sr_engine)
         if cfg.sr_engine != "none":

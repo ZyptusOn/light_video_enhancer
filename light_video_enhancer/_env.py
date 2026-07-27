@@ -324,8 +324,8 @@ def _save_cache(items: List[Dict[str, Any]]) -> None:
             json.dump({"version": _ENV_CACHE_VERSION, "created": time.time(),
                        "environments": serialised}, handle,
                       ensure_ascii=False, indent=2)
-    except OSError:
-        _log.debug("无法写入环境缓存", exc_info=True)
+    except OSError as exc:
+        _log.debug("无法写入环境缓存: %s", exc)
 
 
 def get_all_python_envs(timeout: float = 12.0, force_rescan: bool = False) -> List[Dict[str, Any]]:
@@ -379,8 +379,8 @@ def get_torch_python(force_rescan: bool = False) -> Optional[str]:
 
 def get_python_for_feature(feature: str,
                            force_rescan: bool = False) -> Optional[str]:
-    """Return a scanned Python executable that provides an optional feature."""
-    if feature not in {"flashvsr", "seedvr2"}:
+    """Return a scanned CUDA Python executable that provides an optional feature."""
+    if feature not in {"nvvfx", "flashvsr", "seedvr2"}:
         raise ValueError("Unknown Python feature: %s" % feature)
     for info in get_all_python_envs(force_rescan=force_rescan):
         if (info.get("torch") and info.get("cuda")

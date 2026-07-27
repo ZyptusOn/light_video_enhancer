@@ -17,6 +17,18 @@ class EnvironmentDiscoveryTests(unittest.TestCase):
             r"C:\Users\demo\Python38\python.exe",
         ])
 
+    def test_nvvfx_environment_can_be_selected_on_demand(self):
+        environments = [
+            {"exe": r"C:\envs\torch-only\python.exe",
+             "torch": True, "cuda": True, "nvvfx": False},
+            {"exe": r"C:\envs\torch-nvvfx\python.exe",
+             "torch": True, "cuda": True, "nvvfx": True},
+        ]
+        with mock.patch.object(_env, "get_all_python_envs",
+                               return_value=environments):
+            self.assertEqual(_env.get_python_for_feature("nvvfx"),
+                             environments[1]["exe"])
+
     @unittest.skipUnless(os.name == "nt", "Windows path layout test")
     def test_glob_discovery_includes_named_conda_env(self):
         with tempfile.TemporaryDirectory(prefix="lve-env-test-") as home:

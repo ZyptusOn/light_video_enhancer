@@ -6,6 +6,7 @@ from unittest import mock
 
 import numpy as np
 
+from light_video_enhancer import pipeline as pipeline_module
 from light_video_enhancer._shared_frames import SharedNDArray, close_process_pipes
 from light_video_enhancer.config import ProcessConfig
 from light_video_enhancer.fused_rife_nvvfx import (
@@ -85,6 +86,18 @@ class FastPathTests(unittest.TestCase):
                             "light_video_enhancer._env.get_all_python_envs") as scan:
             self.assertEqual(enhancer._fusion_python(), combined)
         scan.assert_not_called()
+
+    def test_fusion_python_scans_on_cache_miss_for_frozen_backend(self):
+        combined = r"C:\envs\torch-nvvfx\python.exe"
+        enhancer = VideoEnhancer(ProcessConfig())
+        with mock.patch(
+                "light_video_enhancer._env.get_cached_python_envs",
+                return_value=[]), mock.patch(
+                    "light_video_enhancer._env.get_python_for_feature",
+                    return_value=combined) as scan, mock.patch.object(
+                        pipeline_module.sys, "frozen", True, create=True):
+            self.assertEqual(enhancer._fusion_python(), combined)
+        scan.assert_called_once_with("nvvfx")
 
     def test_fused_path_can_be_disabled_for_compatibility(self):
         with mock.patch.dict(os.environ, {"LVE_DISABLE_FUSED_CUDA": "1"}):
