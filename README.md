@@ -31,11 +31,13 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 | 文件 | SHA-256 |
 |---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `26833CC5A6280824123928AB57811861DE861478627DF609BDB17997B93835B0` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `45FA39ACAD453BEC27B1347EEFF9C6E858F10EEFC60DF7A38BAD2840DC1CD025` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `5330DBA0CA5580641AB4743934D0434480E1DF05CC8DAA6840113B5FA4889F61` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `96EC88285DD3801B372F96E1D0947F5F73DD2BC63C5BF3BEF3934C64BB02A0CE` |
 | `LightVideoEnhancer-Win7-x64.exe` | `AF8D040BF899B0F14235796104187F5D707580C977E322C5D9FE9830D9CBA842` |
 
-三套发行文件均使用 v0.7.0 源码重建。Full 与 Lite 内的 WinUI 前端逐字节相同。
+Full 与 Lite 已在 2026-07-27 用提交 `9cd9088` 原地更新：独立 CLI 会在需要
+RIFE / NV-VFX 时按需发现 CUDA Python，初始化失败时也会保留错误窗口。Win7
+LTS 资产保持 v0.7.0 原构建不变；Full 与 Lite 内的 WinUI 前端逐字节相同。
 
 ## v0.7.0 亮点
 

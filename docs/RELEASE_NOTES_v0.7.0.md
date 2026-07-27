@@ -1,5 +1,15 @@
 # Light Video Enhancer v0.7.0
 
+## 2026-07-27 构建热修复
+
+v0.7.0 的 Full/Lite 资产已使用提交 `9cd9088` 原地更新，Release 标签保持不变。
+
+- 独立 CLI 在明确使用 RIFE / NV-VFX 时会按需扫描并自动选择同时具备
+  CUDA PyTorch 与 nvvfx 的 Python 环境，不再依赖先启动 WinUI 扫描。
+- 显式 `--torch-python` 可直接进入融合 CUDA Worker；失败时仍会安全回退。
+- 从资源管理器启动的交互 CLI 若初始化失败，会显示错误并等待回车，而不再立即关闭窗口。
+- WinUI 前端精简至约 42.4 MiB；Full/Lite 归档分别约 369.85/133.23 MiB。
+
 本版本扩展了跨厂商 AI 插帧与超分能力，并将自动选择从固定优先级升级为可解释的
 上下文评分器。它同时完成了 WinUI 模型门控、重型可选运行时、Full/Lite 打包和
 NCNN 常驻 worker 的下一轮整合。
@@ -65,15 +75,16 @@ SPAN 是组合瓶颈，因此自动超分在没有 NV-VFX 时仍优先实测更�
 
 | 文件 | 大小 | SHA-256 |
 |---|---:|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 412.64 MiB | `26833CC5A6280824123928AB57811861DE861478627DF609BDB17997B93835B0` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 176.02 MiB | `45FA39ACAD453BEC27B1347EEFF9C6E858F10EEFC60DF7A38BAD2840DC1CD025` |
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 369.85 MiB | `5330DBA0CA5580641AB4743934D0434480E1DF05CC8DAA6840113B5FA4889F61` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 133.23 MiB | `96EC88285DD3801B372F96E1D0947F5F73DD2BC63C5BF3BEF3934C64BB02A0CE` |
 | `LightVideoEnhancer-Win7-x64.exe` | 318.92 MiB | `AF8D040BF899B0F14235796104187F5D707580C977E322C5D9FE9830D9CBA842` |
 
 ## 验证
 
-- Python 单元及集成测试：44 项通过 43 项，1 项真实 Vulkan 冒烟默认按环境跳过。
-- 真实自动管线成功执行 `RIFE -> NV-VFX -> H.264 NVENC`，输出 11 帧均可解码。
-- WinUI Release x64 构建 0 警告、0 错误。
+- Python 单元及集成测试：57 项中 56 项通过，1 项真实 Vulkan 冒烟按环境跳过。
+- 最终 Full 后端未指定 `--torch-python`，成功按需选择环境并执行
+  `RIFE -> NV-VFX -> AV1 NVENC`，3 帧输入生成 5 帧输出。
+- WinUI Release x64 构建 0 错误；保留 2 项 Windows SDK/WinRT IL2104 裁剪分析警告。
 - SPAN 原生 worker 已通过真实 Vulkan 字节范围和 BGR 顺序冒烟。
 
 ## English summary
