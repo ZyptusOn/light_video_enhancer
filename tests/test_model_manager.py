@@ -25,6 +25,10 @@ class ModelManagerTests(unittest.TestCase):
         self.assertIn(
             "seedvr2-3b-fp8/ema_vae_fp16.safetensors", paths)
         self.assertIn("ncnn/rife/rife-v4.6/flownet.bin", paths)
+        self.assertIn(
+            "seedvr2-7b-q4/seedvr2_ema_7b-Q4_K_M.gguf", paths)
+        self.assertIn("seedvr2-7b-sharp-q4/"
+                      "seedvr2_ema_7b_sharp-Q4_K_M.gguf", paths)
         self.assertIn("ncnn/realcugan/models-se/up4x-denoise3x.bin", paths)
         self.assertIn("ncnn/realesrgan/models/realesrgan-x4plus.bin", paths)
         self.assertIn("ncnn/realesrgan/models/esrgan-x4.bin", paths)
@@ -49,6 +53,33 @@ class ModelManagerTests(unittest.TestCase):
         self.assertNotIn("sr/_flashvsr_infer.py", win7_relative)
         self.assertNotIn("sr/_seedvr2_infer.py", win7_relative)
         self.assertFalse(any(path.startswith("external/") for path in win7_relative))
+
+    def test_heavy_workers_protect_framed_stdout_and_native_crashes(self):
+        package = Path(model_manager.__file__).parent
+        for worker in ("_flashvsr_infer.py", "_seedvr2_infer.py"):
+            source = (package / "sr" / worker).read_text(encoding="utf-8")
+            self.assertIn("redirect_stdout(sys.stderr)", source)
+            self.assertIn("SetErrorMode(0x0001 | 0x0002)", source)
+        seed_adapter = (package / "sr" / "seedvr2.py").read_text(
+            encoding="utf-8")
+        self.assertIn(
+            'child_env["PYTORCH_CUDA_ALLOC_CONF"] = '
+            '"backend:cudaMallocAsync"', seed_adapter)
+        for adapter in ("flashvsr.py", "seedvr2.py"):
+            source = (package / "sr" / adapter).read_text(encoding="utf-8")
+            self.assertIn('child_env["PYTHONIOENCODING"] = "utf-8"', source)
+
+    def test_seed_runtime_contains_required_non_python_assets(self):
+        package = Path(model_manager.__file__).parent
+        archive = package / "external" / "seedvr2_runtime.zip"
+        with zipfile.ZipFile(str(archive), "r") as bundle:
+            names = set(bundle.namelist())
+        self.assertIn(
+            "src/models/video_vae_v3/s8_c16_t4_inflation_sd3.yaml", names)
+        self.assertIn("configs_3b/main.yaml", names)
+        self.assertIn("configs_7b/main.yaml", names)
+        self.assertIn("neg_emb.pt", names)
+        self.assertIn("pos_emb.pt", names)
 
     def test_remote_model_hashes_cover_every_download(self):
         for pack in model_manager.MODEL_PACKS:

@@ -7,7 +7,10 @@ from .fallback import BicubicEngine, LanczosEngine
 def create_sr_engine(engine_name: str, device: str = "auto",
                      torch_python: Optional[str] = None,
                      ncnn_gpu: Optional[int] = None,
-                     quality: str = "quality") -> SuperResolutionEngine:
+                     quality: str = "quality",
+                     spark_reference_path: Optional[str] = None,
+                     spark_reference_indices=None,
+                     spark_reference_guidance: float = 1.0) -> SuperResolutionEngine:
     if engine_name == "dxva_vsr":
         from .dxva_vsr import DXVA_VSR_Engine
         return DXVA_VSR_Engine()
@@ -23,6 +26,20 @@ def create_sr_engine(engine_name: str, device: str = "auto",
     if engine_name == "seedvr2":
         from .seedvr2 import SeedVR2Engine
         return SeedVR2Engine(device=device, torch_python=torch_python, quality=quality)
+    if engine_name == "dloral":
+        from .dloral import DLoRALEngine
+        return DLoRALEngine(device=device, torch_python=torch_python, quality=quality)
+    if engine_name == "osdenhancer":
+        from .osdenhancer import OSDEnhancerEngine
+        return OSDEnhancerEngine(
+            device=device, torch_python=torch_python, quality=quality)
+    if engine_name == "sparkvsr":
+        from .sparkvsr import SparkVSREngine
+        return SparkVSREngine(
+            device=device, torch_python=torch_python, quality=quality,
+            reference_path=spark_reference_path,
+            reference_indices=spark_reference_indices,
+            reference_guidance=spark_reference_guidance)
     if engine_name == "flashvsr":
         from .flashvsr import FlashVSREngine
         return FlashVSREngine(device=device, torch_python=torch_python, quality=quality)

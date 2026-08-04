@@ -128,6 +128,12 @@
                                                   Tag="flashvsr" IsEnabled="False" />
                                     <ComboBoxItem x:Name="SeedVr2SrItem" Content="SeedVR2 3B FP8（重型修复）"
                                                   Tag="seedvr2" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="DloralSrItem" Content="DLoRAL 4×（实验性重型修复）"
+                                                  Tag="dloral" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="OsdEnhancerSrItem" Content="OSDEnhancer 4×/2×（联合重型修复）"
+                                                  Tag="osdenhancer" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="SparkVsrSrItem" Content="SparkVSR Stage-2 4×（关键帧重型修复）"
+                                                  Tag="sparkvsr" IsEnabled="False" />
                                     <ComboBoxItem Content="Real-CUGAN ncnn-vulkan" Tag="realcugan" />
                                     <ComboBoxItem Content="Real-ESRGAN ncnn-vulkan" Tag="realesrgan" />
                                     <ComboBoxItem Content="ESRGAN 经典模型 ncnn" Tag="esrgan" />
@@ -164,6 +170,8 @@
                                                   Tag="rife" IsEnabled="False" />
                                     <ComboBoxItem x:Name="EmaVfiFiItem" Content="EMA-VFI Small（PyTorch CUDA）"
                                                   Tag="ema_vfi" IsEnabled="False" />
+                                    <ComboBoxItem x:Name="VfiMambaFiItem" Content="VFIMamba S / Full（PyTorch CUDA）"
+                                                  Tag="vfimamba" IsEnabled="False" />
                                     <ComboBoxItem x:Name="RifeNcnnFiItem" Content="RIFE ncnn-vulkan"
                                                   Tag="rife_ncnn" />
                                     <ComboBoxItem x:Name="IfrNetFiItem" Content="IFRNet ncnn-vulkan"
@@ -194,6 +202,39 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
+                    <Border x:Name="SparkReferenceCard" Style="{StaticResource CardStyle}"
+                            Visibility="Collapsed">
+                        <StackPanel Spacing="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Style="{StaticResource SectionTitleStyle}"
+                                           Text="SparkVSR 参考关键帧（可选）" />
+                                <TextBlock Style="{StaticResource CaptionStyle}"
+                                           Text="留空使用无参考模式。参考目录中的图像按文件名排序，必须与源帧编号一一对应、至少相隔 4 帧，并与 4× 输出分辨率完全一致。" />
+                            </StackPanel>
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="SparkReferencePathBox" Header="高质量参考图或图像目录"
+                                         PlaceholderText="留空使用 no-ref；目录中可放多张参考图" />
+                                <Button Grid.Column="1" Margin="0,26,0,0"
+                                        Click="BrowseSparkReference_Click" Content="选择目录…" />
+                            </Grid>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="SparkReferenceIndicesBox" Header="对应源帧编号"
+                                         PlaceholderText="例如：0,48,96" />
+                                <NumberBox x:Name="SparkReferenceGuidanceBox" Grid.Column="1"
+                                           Header="参考引导强度" Value="1" Minimum="0" Maximum="4"
+                                           SmallChange="0.1" SpinButtonPlacementMode="Compact" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel Spacing="14">

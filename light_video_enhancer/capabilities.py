@@ -88,6 +88,10 @@ def quick_capabilities() -> Dict[str, object]:
     rife_model = model_file_exists("fi", "flownet.pkl")
     ema_vfi_model = model_file_exists(
         "fi", "ema_vfi", "ours_small_t.pkl")
+    vfimamba_model = (
+        pkg_file_exists("external", "vfimamba_runtime.zip")
+        and all(model_file_exists("vfimamba", name)
+                for name in ("VFIMamba_S.pkl", "VFIMamba.pkl")))
     flashvsr_model = (
         pkg_file_exists("external", "flashvsr_runtime.zip")
         and all(model_file_exists("flashvsr-v1.1", name) for name in (
@@ -98,6 +102,52 @@ def quick_capabilities() -> Dict[str, object]:
         and all(model_file_exists("seedvr2-3b-fp8", name) for name in (
             "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
             "ema_vae_fp16.safetensors")))
+    seedvr2_7b_model = model_file_exists(
+        "seedvr2-7b-q4", "seedvr2_ema_7b-Q4_K_M.gguf")
+    seedvr2_7b_sharp_model = model_file_exists(
+        "seedvr2-7b-sharp-q4",
+        "seedvr2_ema_7b_sharp-Q4_K_M.gguf")
+    dloral_model = (
+        pkg_file_exists("external", "dloral_runtime.zip")
+        and all(model_file_exists("dloral-core", name) for name in (
+            "model.pkl", "spynet_20210409-c6c1bd09.pth",
+            "stable-diffusion-2-1-base/scheduler/scheduler_config.json",
+            "stable-diffusion-2-1-base/tokenizer/merges.txt",
+            "stable-diffusion-2-1-base/tokenizer/vocab.json",
+            "stable-diffusion-2-1-base/text_encoder/config.json",
+            "stable-diffusion-2-1-base/text_encoder/model.safetensors",
+            "stable-diffusion-2-1-base/unet/config.json",
+            "stable-diffusion-2-1-base/unet/diffusion_pytorch_model.safetensors",
+            "stable-diffusion-2-1-base/vae/config.json",
+            "stable-diffusion-2-1-base/vae/diffusion_pytorch_model.safetensors")))
+    dloral_prompt_model = all(
+        model_file_exists("dloral-prompt", name) for name in (
+            "ram_swin_large_14m.pth", "DAPE.pth"))
+    osdenhancer_model = (
+        pkg_file_exists("external", "osdenhancer_runtime.zip")
+        and all(model_file_exists("osdenhancer-v1", name) for name in (
+            "prompt_embeddings/empty.safetensors",
+            "scheduler/scheduler_config.json",
+            "transformer/config.json",
+            "transformer/diffusion_pytorch_model-00001-of-00002.safetensors",
+            "transformer/diffusion_pytorch_model-00002-of-00002.safetensors",
+            "transformer/diffusion_pytorch_model.safetensors.index.json",
+            "vae/config.json",
+            "vae/diffusion_pytorch_model.safetensors")))
+    sparkvsr_model = (
+        pkg_file_exists("external", "sparkvsr_runtime.zip")
+        and all(model_file_exists("sparkvsr-stage2", name) for name in (
+            "model_index.json", "scheduler/scheduler_config.json",
+            "text_encoder/model-00001-of-00004.safetensors",
+            "text_encoder/model-00002-of-00004.safetensors",
+            "text_encoder/model-00003-of-00004.safetensors",
+            "text_encoder/model-00004-of-00004.safetensors",
+            "transformer/diffusion_pytorch_model-00001-of-00005.safetensors",
+            "transformer/diffusion_pytorch_model-00002-of-00005.safetensors",
+            "transformer/diffusion_pytorch_model-00003-of-00005.safetensors",
+            "transformer/diffusion_pytorch_model-00004-of-00005.safetensors",
+            "transformer/diffusion_pytorch_model-00005-of-00005.safetensors",
+            "vae/diffusion_pytorch_model.safetensors")))
     cugan_model = all(model_file_exists("ncnn", "realcugan", "models-se", name)
                       for name in ("up2x-conservative.param", "up2x-conservative.bin"))
     realesrgan_model = all(
@@ -137,8 +187,15 @@ def quick_capabilities() -> Dict[str, object]:
         "nvvfx_current": _has_current_module("nvvfx"),
         "rife_model": rife_model,
         "ema_vfi_model": ema_vfi_model,
+        "vfimamba_model": vfimamba_model,
         "flashvsr_model": flashvsr_model,
         "seedvr2_model": seedvr2_model,
+        "seedvr2_7b_model": seedvr2_7b_model,
+        "seedvr2_7b_sharp_model": seedvr2_7b_sharp_model,
+        "dloral_model": dloral_model,
+        "dloral_prompt_model": dloral_prompt_model,
+        "osdenhancer_model": osdenhancer_model,
+        "sparkvsr_model": sparkvsr_model,
         "ncnn_rife": (
             pkg_file_exists("ncnn", "rife", "rife-ncnn-vulkan.exe")
             and all(model_file_exists("ncnn", "rife", "rife-v4.6", name)

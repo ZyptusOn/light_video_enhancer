@@ -125,6 +125,13 @@ def _glob_python_candidates() -> List[str]:
     patterns = [
         os.path.join(local, "Programs", "Python", "Python*", "python.exe"),
         os.path.join(local, "Python", "bin", "python.exe"),
+        # Optional heavyweight runtimes installed by Light Video Enhancer.
+        # Lite and Full builds share this location and application upgrades
+        # do not remove the environments.
+        os.path.join(local, "LightVideoEnhancer", "runtimes", "*",
+                     "Scripts", "python.exe"),
+        os.path.join(local, "LightVideoEnhancer", "runtimes", "*",
+                     "python.exe"),
         os.path.join(local, "uv", "python", "*", "python.exe"),
         os.path.join(roaming, "uv", "python", "*", "python.exe"),
         os.path.join(home, ".pyenv", "pyenv-win", "versions", "*", "python.exe"),
@@ -206,12 +213,13 @@ def _find_python_candidates() -> List[str]:
     return _dedupe(candidates)
 
 
-def check_python_env(python_exe: str, timeout: float = 12.0) -> Dict[str, Any]:
+def check_python_env(python_exe: str, timeout: float = 35.0) -> Dict[str, Any]:
     script = r"""
 import importlib.util, json, sys
 r = {'version': '.'.join(map(str, sys.version_info[:3])), 'torch': False,
      'cuda': False, 'torch_version': '', 'gpu_name': '', 'nvvfx': False,
-     'flashvsr': False, 'seedvr2': False}
+     'flashvsr': False, 'seedvr2': False, 'dloral': False, 'osdenhancer': False,
+     'sparkvsr': False, 'vfimamba': False}
 find = importlib.util.find_spec
 if importlib.util.find_spec('torch') is not None:
     try:
@@ -224,20 +232,125 @@ if importlib.util.find_spec('torch') is not None:
     except Exception as e:
         r['error'] = str(e)
 r['nvvfx'] = importlib.util.find_spec('nvvfx') is not None
-flash_modules = ('block_sparse_attn', 'einops', 'safetensors', 'PIL', 'tqdm')
+flash_modules = ('block_sparse_attn', 'einops', 'safetensors', 'PIL', 'tqdm',
+                 'modelscope', 'transformers', 'peft', 'accelerate',
+                 'huggingface_hub')
 seed_modules = ('torchvision', 'safetensors', 'psutil', 'einops',
                 'omegaconf', 'diffusers', 'peft',
                 'rotary_embedding_torch', 'cv2', 'gguf', 'matplotlib')
-r['flashvsr'] = bool(r['cuda'] and sys.version_info[:2] == (3, 11)
-                     and all(find(name) is not None for name in flash_modules))
-r['seedvr2'] = bool(r['cuda'] and sys.version_info[:2] >= (3, 10)
-                    and all(find(name) is not None for name in seed_modules))
+dloral_modules = ('torchvision', 'safetensors', 'PIL', 'yaml', 'diffusers',
+                   'transformers', 'peft', 'einops', 'requests', 'tqdm')
+osdenhancer_modules = (
+    'torchvision', 'safetensors', 'diffusers', 'transformers', 'peft',
+    'accelerate', 'huggingface_hub', 'tqdm')
+sparkvsr_modules = (
+    'torchvision', 'safetensors', 'diffusers', 'transformers',
+    'accelerate', 'huggingface_hub', 'sentencepiece', 'PIL', 'psutil')
+vfimamba_modules = ('torchvision', 'timm', 'einops')
+flash_present = all(find(name) is not None for name in flash_modules)
+flash_importable = False
+if r['cuda'] and sys.version_info[:2] == (3, 11) and flash_present:
+    try:
+        import block_sparse_attn
+        flash_importable = True
+    except Exception as e:
+        r['flashvsr_error'] = str(e)
+r['flashvsr'] = bool(flash_importable)
+seed_present = all(find(name) is not None for name in seed_modules)
+seed_importable = False
+if r['cuda'] and sys.version_info[:2] >= (3, 10) and seed_present:
+    try:
+        # These packages contain native extensions; find_spec alone can mark
+        # an ABI-incompatible torch/torchvision or OpenCV pair as usable.
+        import torchvision
+        import safetensors
+        import cv2
+        import gguf
+        seed_importable = True
+    except Exception as e:
+        r['seedvr2_error'] = str(e)
+r['seedvr2'] = bool(seed_importable)
+dloral_present = all(find(name) is not None for name in dloral_modules)
+dloral_importable = False
+if r['cuda'] and sys.version_info[:2] >= (3, 10) and dloral_present:
+    try:
+        import torchvision
+        from torchvision.ops import deform_conv2d
+        import diffusers
+        import transformers
+        import peft
+        import safetensors
+        dloral_importable = callable(deform_conv2d)
+    except Exception as e:
+        r['dloral_error'] = str(e)
+r['dloral'] = bool(dloral_importable)
+osdenhancer_present = all(
+    find(name) is not None for name in osdenhancer_modules)
+osdenhancer_importable = False
+if r['cuda'] and sys.version_info[:2] >= (3, 10) and osdenhancer_present:
+    try:
+        import torchvision
+        from torchvision.ops import DeformConv2d
+        import diffusers
+        import transformers
+        import peft
+        import safetensors
+        total_vram = int(torch.cuda.get_device_properties(0).total_memory)
+        if total_vram >= 79 * 1024 ** 3:
+            osdenhancer_importable = callable(DeformConv2d)
+        else:
+            r['osdenhancer_error'] = (
+                'requires at least 80 GB VRAM; detected %.1f GiB' %
+                (total_vram / 1024 ** 3))
+    except Exception as e:
+        r['osdenhancer_error'] = str(e)
+r['osdenhancer'] = bool(osdenhancer_importable)
+sparkvsr_present = all(find(name) is not None for name in sparkvsr_modules)
+sparkvsr_importable = False
+if r['cuda'] and sys.version_info[:2] >= (3, 10) and sparkvsr_present:
+    try:
+        import torchvision
+        import diffusers
+        from diffusers import CogVideoXImageToVideoPipeline
+        import transformers
+        import accelerate
+        import sentencepiece
+        import psutil
+        total_vram = int(torch.cuda.get_device_properties(0).total_memory)
+        total_ram = int(psutil.virtual_memory().total)
+        enough_memory = (
+            total_vram >= 40 * 1024 ** 3 or
+            (total_vram >= 11 * 1024 ** 3 and total_ram >= 56 * 1024 ** 3))
+        sparkvsr_importable = callable(CogVideoXImageToVideoPipeline) and enough_memory
+        if not enough_memory:
+            r['sparkvsr_error'] = (
+                '42.2 GB model safety gate needs >=40 GiB VRAM, or >=11 GiB VRAM '
+                'with >=56 GiB RAM; detected %.1f/%.1f GiB' %
+                (total_vram / 1024 ** 3, total_ram / 1024 ** 3))
+    except Exception as e:
+        r['sparkvsr_error'] = str(e)
+r['sparkvsr'] = bool(sparkvsr_importable)
+vfimamba_present = all(find(name) is not None for name in vfimamba_modules)
+vfimamba_importable = False
+if r['cuda'] and sys.version_info[:2] >= (3, 10) and vfimamba_present:
+    try:
+        # mamba_ssm is deliberately optional and is not imported during the
+        # scan: incompatible native wheels can terminate Python. The bundled
+        # official reference scan remains the safe fallback.
+        import torchvision
+        import timm
+        import einops
+        vfimamba_importable = True
+    except Exception as e:
+        r['vfimamba_error'] = str(e)
+r['vfimamba'] = bool(vfimamba_importable)
 print(json.dumps(r, ensure_ascii=True))
 """
     info: Dict[str, Any] = {"exe": python_exe, "version": "?", "torch": False,
                             "cuda": False, "torch_version": "", "gpu_name": "",
                             "nvvfx": False, "flashvsr": False,
-                            "seedvr2": False}
+                            "seedvr2": False, "dloral": False, "osdenhancer": False,
+                            "sparkvsr": False, "vfimamba": False}
     try:
         result = subprocess.run(
             [python_exe, "-c", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -259,7 +372,7 @@ print(json.dumps(r, ensure_ascii=True))
     return info
 
 
-_ENV_CACHE_VERSION = 2
+_ENV_CACHE_VERSION = 7
 
 
 def _load_cache(max_age: float = 24 * 3600) -> List[Dict[str, Any]]:
@@ -328,7 +441,7 @@ def _save_cache(items: List[Dict[str, Any]]) -> None:
         _log.debug("无法写入环境缓存: %s", exc)
 
 
-def get_all_python_envs(timeout: float = 12.0, force_rescan: bool = False) -> List[Dict[str, Any]]:
+def get_all_python_envs(timeout: float = 35.0, force_rescan: bool = False) -> List[Dict[str, Any]]:
     if not force_rescan:
         cached = _load_cache()
         if cached:
@@ -380,7 +493,7 @@ def get_torch_python(force_rescan: bool = False) -> Optional[str]:
 def get_python_for_feature(feature: str,
                            force_rescan: bool = False) -> Optional[str]:
     """Return a scanned CUDA Python executable that provides an optional feature."""
-    if feature not in {"nvvfx", "flashvsr", "seedvr2"}:
+    if feature not in {"nvvfx", "flashvsr", "seedvr2", "dloral", "osdenhancer", "sparkvsr", "vfimamba"}:
         raise ValueError("Unknown Python feature: %s" % feature)
     for info in get_all_python_envs(force_rescan=force_rescan):
         if (info.get("torch") and info.get("cuda")

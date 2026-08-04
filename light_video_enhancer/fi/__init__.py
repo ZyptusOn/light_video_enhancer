@@ -13,6 +13,9 @@ def create_fi_engine(engine_name: str, device: str = "auto",
     if engine_name == "ema_vfi":
         from .ema_vfi import EMAVFIEngine
         return EMAVFIEngine(device=device, quality=quality, torch_python=torch_python)
+    if engine_name == "vfimamba":
+        from .vfimamba import VFIMambaEngine
+        return VFIMambaEngine(device=device, quality=quality, torch_python=torch_python)
     if engine_name == "rife_ncnn":
         from .rife_ncnn import RIFENcnnEngine
         return RIFENcnnEngine(quality=quality, gpu_id=ncnn_gpu)

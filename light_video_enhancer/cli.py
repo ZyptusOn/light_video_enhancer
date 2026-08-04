@@ -103,11 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-H", "--height", type=int, default=0,
                         help=tr("指定输出高度", "explicit output height"))
     parser.add_argument("--sr-engine", default="auto", choices=[
-        "auto", "dxva_vsr", "nvvfx", "span", "flashvsr", "seedvr2",
+        "auto", "dxva_vsr", "nvvfx", "span", "flashvsr", "seedvr2", "dloral", "osdenhancer", "sparkvsr",
         "realcugan", "realesrgan", "esrgan",
         "bicubic", "lanczos", "none"], help=tr("超分引擎", "super-resolution engine"))
     parser.add_argument("--fi-engine", default="auto", choices=[
-        "auto", "rife", "ema_vfi", "rife_ncnn", "ifrnet_ncnn", "dis", "optical_flow",
+        "auto", "rife", "ema_vfi", "vfimamba", "rife_ncnn", "ifrnet_ncnn", "dis", "optical_flow",
         "torch_flow", "blend", "none"], help=tr("插帧引擎", "interpolation engine"))
     parser.add_argument("--sr-quality", default="quality",
                         choices=["fast", "balanced", "quality", "ultra"],
@@ -138,6 +138,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help=tr("PyTorch 设备", "PyTorch device"))
     parser.add_argument("--torch-python",
                         help=tr("外部 CUDA PyTorch 的 python.exe", "python.exe from an external CUDA PyTorch environment"))
+    parser.add_argument("--spark-reference",
+                        help=tr("SparkVSR 高质量参考图或参考图目录", "SparkVSR HQ reference image or image directory"))
+    parser.add_argument("--spark-reference-indices", default="",
+                        help=tr("SparkVSR 参考图对应的源帧编号，如 0,48", "source-frame indices for SparkVSR references, e.g. 0,48"))
+    parser.add_argument("--spark-reference-guidance", type=float, default=1.0,
+                        help=tr("SparkVSR 参考图引导强度（0-4）", "SparkVSR reference guidance strength (0-4)"))
     parser.add_argument("--ncnn-gpu", type=_ncnn_gpu, default=None,
                         metavar="auto|cpu|INDEX", help=tr("NCNN Vulkan 设备", "NCNN Vulkan device"))
     parser.add_argument("--no-audio", action="store_true", help=tr("不复制源音频", "do not copy source audio"))
@@ -177,4 +183,7 @@ def parse_args(argv=None) -> ProcessConfig:
         fi_quality=args.fi_quality,
         encode=encode, fps=args.fps, start_time=args.start, duration=args.duration,
         device=args.device, torch_python=args.torch_python, sr_first=args.sr_first,
-        ncnn_gpu=args.ncnn_gpu, keep_partial=args.keep_partial)
+        ncnn_gpu=args.ncnn_gpu, keep_partial=args.keep_partial,
+        spark_reference_path=args.spark_reference,
+        spark_reference_indices=args.spark_reference_indices,
+        spark_reference_guidance=args.spark_reference_guidance)

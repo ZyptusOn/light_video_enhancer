@@ -1,9 +1,17 @@
 """Persistent optional FlashVSR v1.1 Tiny Long worker."""
 
+import contextlib
 import io
 import os
 import sys
+import traceback
 import zipfile
+
+if os.name == "nt":
+    # Suppress Windows Error Reporting UI for isolated native extensions; the
+    # parent process reports the closed worker pipe in its normal error path.
+    import ctypes
+    ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002)
 
 import numpy as np
 import torch
@@ -163,7 +171,10 @@ def _process(pipe, args, request):
 def main() -> None:
     try:
         args = _read()
-        pipe = _load_runtime(args)
+        # DiffSynth writes model-loading and pipeline status to stdout. Keep
+        # stdout exclusively for framed IPC or text corrupts binary replies.
+        with contextlib.redirect_stdout(sys.stderr):
+            pipe = _load_runtime(args)
         _write({
             "ready": True,
             "gpu_name": torch.cuda.get_device_name(0),
@@ -174,8 +185,11 @@ def main() -> None:
             except EOFError:
                 break
             try:
-                _write(_process(pipe, args, request))
+                with contextlib.redirect_stdout(sys.stderr):
+                    result = _process(pipe, args, request)
+                _write(result)
             except Exception as exc:
+                traceback.print_exc(file=sys.stderr)
                 _write({"error": str(exc)})
                 break
     except Exception as exc:

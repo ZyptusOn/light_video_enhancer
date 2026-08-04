@@ -11,6 +11,14 @@ public sealed partial class MainPage
     private string? _flashVsrPython;
     private bool _seedVr2ModelAvailable;
     private string? _seedVr2Python;
+    private bool _dloralModelAvailable;
+    private string? _dloralPython;
+    private bool _osdEnhancerModelAvailable;
+    private string? _osdEnhancerPython;
+    private bool _sparkVsrModelAvailable;
+    private string? _sparkVsrPython;
+    private bool _vfiMambaModelAvailable;
+    private string? _vfiMambaPython;
 
     private void UpdateExternalEngineAvailability()
     {
@@ -20,6 +28,10 @@ public sealed partial class MainPage
         bool hasNvVfx = false;
         bool hasFlashVsr = false;
         bool hasSeedVr2 = false;
+        bool hasDloral = false;
+        bool hasOsdEnhancer = false;
+        bool hasSparkVsr = false;
+        bool hasVfiMamba = false;
 
         if (scanned)
         {
@@ -41,6 +53,10 @@ public sealed partial class MainPage
                         hasNvVfx |= torch && cuda && BoolProperty(environment, "nvvfx");
                         hasFlashVsr |= torch && cuda && BoolProperty(environment, "flashvsr");
                         hasSeedVr2 |= torch && cuda && BoolProperty(environment, "seedvr2");
+                        hasDloral |= torch && cuda && BoolProperty(environment, "dloral");
+                        hasOsdEnhancer |= torch && cuda && BoolProperty(environment, "osdenhancer");
+                        hasSparkVsr |= torch && cuda && BoolProperty(environment, "sparkvsr");
+                        hasVfiMamba |= torch && cuda && BoolProperty(environment, "vfimamba");
                     }
                 }
             }
@@ -73,6 +89,27 @@ public sealed partial class MainPage
                 "A compatible CUDA PyTorch environment and the SeedVR2 3B FP8 model pack are required.")
                 : notScanned);
         SetExternalEngineState(
+            SrEngineBox, DloralSrItem,
+            scanned && hasDloral && _dloralModelAvailable,
+            scanned ? T(
+                "需要兼容的 CUDA PyTorch 环境与约 8.1 GiB DLoRAL 核心模型包；仅支持原生 4×。",
+                "A compatible CUDA PyTorch environment and the roughly 8.1 GiB DLoRAL core pack are required; native 4x only.")
+                : notScanned);
+        SetExternalEngineState(
+            SrEngineBox, OsdEnhancerSrItem,
+            scanned && hasOsdEnhancer && _osdEnhancerModelAvailable,
+            scanned ? T(
+                "需要约 12.0 GiB 模型包、兼容的 CUDA PyTorch 环境及至少 80 GB 显存；固定为 4× 超分和 2× 插帧。",
+                "The roughly 12.0 GiB model pack, a compatible CUDA PyTorch environment, and at least 80 GB VRAM are required; fixed 4x SR and 2x interpolation.")
+                : notScanned);
+        SetExternalEngineState(
+            SrEngineBox, SparkVsrSrItem,
+            scanned && hasSparkVsr && _sparkVsrModelAvailable,
+            scanned ? T(
+                "需要约 39.3 GiB 模型、兼容的 CUDA PyTorch 环境；低于 40 GiB 显存时安全门还要求至少 56 GiB 内存。",
+                "The roughly 39.3 GiB model, a compatible CUDA PyTorch environment, and (below 40 GiB VRAM) at least 56 GiB system RAM are required by the safety gate.")
+                : notScanned);
+        SetExternalEngineState(
             FiEngineBox, RifeFiItem, scanned && hasTorch,
             scanned ? T(
                 "扫描结果中没有可用的 PyTorch 环境。",
@@ -83,6 +120,12 @@ public sealed partial class MainPage
             scanned ? T(
                 "需要 CUDA PyTorch 环境与 EMA-VFI Small 模型包。",
                 "A CUDA PyTorch environment and the EMA-VFI Small model pack are required.") : notScanned);
+        SetExternalEngineState(
+            FiEngineBox, VfiMambaFiItem,
+            scanned && hasVfiMamba && _vfiMambaModelAvailable,
+            scanned ? T(
+                "需要兼容的 CUDA PyTorch 环境、timm/einops 与 VFIMamba 模型包。",
+                "A compatible CUDA PyTorch environment, timm/einops, and the VFIMamba model pack are required.") : notScanned);
         SetExternalEngineState(
             FiEngineBox, TorchFlowFiItem, scanned && hasCudaTorch,
             scanned ? T(
@@ -95,6 +138,10 @@ public sealed partial class MainPage
         _emaVfiModelAvailable = BoolProperty(capabilities, "ema_vfi_model");
         _flashVsrModelAvailable = BoolProperty(capabilities, "flashvsr_model");
         _seedVr2ModelAvailable = BoolProperty(capabilities, "seedvr2_model");
+        _dloralModelAvailable = BoolProperty(capabilities, "dloral_model");
+        _osdEnhancerModelAvailable = BoolProperty(capabilities, "osdenhancer_model");
+        _sparkVsrModelAvailable = BoolProperty(capabilities, "sparkvsr_model");
+        _vfiMambaModelAvailable = BoolProperty(capabilities, "vfimamba_model");
         bool ifrnet = BoolProperty(capabilities, "ncnn_ifrnet");
         bool span = BoolProperty(capabilities, "ncnn_span");
         SetExternalEngineState(
@@ -140,6 +187,24 @@ public sealed partial class MainPage
                 "SeedVR2 尚未通过环境与模型检查。",
                 "SeedVR2 has not passed the environment and model checks."));
         }
+        if (srEngine == "dloral" && !DloralSrItem.IsEnabled)
+        {
+            throw new ArgumentException(T(
+                "DLoRAL 尚未通过环境与模型检查。",
+                "DLoRAL has not passed the environment and model checks."));
+        }
+        if (srEngine == "osdenhancer" && !OsdEnhancerSrItem.IsEnabled)
+        {
+            throw new ArgumentException(T(
+                "OSDEnhancer 尚未通过环境、模型与显存检查。",
+                "OSDEnhancer has not passed the environment, model, and VRAM checks."));
+        }
+        if (srEngine == "sparkvsr" && !SparkVsrSrItem.IsEnabled)
+        {
+            throw new ArgumentException(T(
+                "SparkVSR 尚未通过环境、模型与内存安全检查。",
+                "SparkVSR has not passed the environment, model, and memory-safety checks."));
+        }
         if (fiEngine == "rife" && !RifeFiItem.IsEnabled)
         {
             throw new ArgumentException(T(
@@ -151,6 +216,12 @@ public sealed partial class MainPage
             throw new ArgumentException(T(
                 "EMA-VFI Small 尚未通过环境与模型检查。",
                 "EMA-VFI Small has not passed the environment and model checks."));
+        }
+        if (fiEngine == "vfimamba" && !VfiMambaFiItem.IsEnabled)
+        {
+            throw new ArgumentException(T(
+                "VFIMamba 尚未通过环境与模型检查。",
+                "VFIMamba has not passed the environment and model checks."));
         }
         if (fiEngine == "torch_flow" && !TorchFlowFiItem.IsEnabled)
         {

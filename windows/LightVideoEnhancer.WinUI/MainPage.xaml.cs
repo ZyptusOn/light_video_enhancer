@@ -130,6 +130,22 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private async void BrowseSparkReference_Click(object sender, RoutedEventArgs e)
+    {
+        FolderPicker picker = new()
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+            ViewMode = PickerViewMode.Thumbnail,
+        };
+        picker.FileTypeFilter.Add("*");
+        InitializeWithWindow.Initialize(picker, MainWindowHandle());
+        StorageFolder? folder = await picker.PickSingleFolderAsync();
+        if (folder is not null)
+        {
+            SparkReferencePathBox.Text = folder.Path;
+        }
+    }
+
     private void InputCard_DragOver(object sender, DragEventArgs e)
     {
         e.AcceptedOperation = DataPackageOperation.Copy;
@@ -165,8 +181,16 @@ public sealed partial class MainPage : Page
         }
         string sr = SelectedTag(SrEngineBox, "auto");
         string fi = SelectedTag(FiEngineBox, "auto");
-        SrQualityBox.IsEnabled = sr is "auto" or "nvvfx" or "span" or "flashvsr" or "seedvr2" or "realcugan" or "realesrgan" or "esrgan";
-        FiQualityBox.IsEnabled = fi is "auto" or "ema_vfi" or "dis" or "optical_flow" or "torch_flow";
+        SrQualityBox.IsEnabled = sr is "auto" or "nvvfx" or "span" or "flashvsr" or "seedvr2" or "dloral" or "sparkvsr" or "realcugan" or "realesrgan" or "esrgan";
+        if (sr is "dloral" or "osdenhancer" or "sparkvsr" && ScaleBox is not null)
+        {
+            ScaleBox.Value = 4;
+            ScaleBox.IsEnabled = false;
+        }
+        else if (ScaleBox is not null) ScaleBox.IsEnabled = true;
+        if (SparkReferenceCard is not null)
+            SparkReferenceCard.Visibility = sr == "sparkvsr" ? Visibility.Visible : Visibility.Collapsed;
+        FiQualityBox.IsEnabled = fi is "auto" or "ema_vfi" or "vfimamba" or "dis" or "optical_flow" or "torch_flow";
         SuggestOutputPath();
     }
 
@@ -650,6 +674,12 @@ public sealed partial class MainPage : Page
         string srEngine = SelectedTag(SrEngineBox, "auto");
         string fiEngine = SelectedTag(FiEngineBox, "auto");
         ValidateExternalEngineSelection(srEngine, fiEngine);
+        if (srEngine == "osdenhancer" && fiEngine is not ("auto" or "none"))
+        {
+            throw new ArgumentException(T(
+                "OSDEnhancer 已内置 2× 插帧；请把独立插帧引擎设为“自动”或“不插帧”。",
+                "OSDEnhancer already includes 2x interpolation; set the separate interpolation engine to Auto or None."));
+        }
 
         List<string> values =
         [
@@ -674,8 +704,23 @@ public sealed partial class MainPage : Page
         {
             "flashvsr" when !string.IsNullOrWhiteSpace(_flashVsrPython) => _flashVsrPython!,
             "seedvr2" when !string.IsNullOrWhiteSpace(_seedVr2Python) => _seedVr2Python!,
+            "dloral" when !string.IsNullOrWhiteSpace(_dloralPython) => _dloralPython!,
+            "osdenhancer" when !string.IsNullOrWhiteSpace(_osdEnhancerPython) => _osdEnhancerPython!,
+            "sparkvsr" when !string.IsNullOrWhiteSpace(_sparkVsrPython) => _sparkVsrPython!,
             _ => TorchPythonBox.Text.Trim(),
         };
+        if (fiEngine == "vfimamba" && !string.IsNullOrWhiteSpace(_vfiMambaPython))
+            requestedPython = _vfiMambaPython!;
+        if (srEngine == "sparkvsr")
+        {
+            string referencePath = SparkReferencePathBox.Text.Trim();
+            string referenceIndices = SparkReferenceIndicesBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(referencePath) != string.IsNullOrWhiteSpace(referenceIndices))
+                throw new ArgumentException(T("参考路径和源帧编号必须同时填写或同时留空。", "Reference path and source-frame indices must both be set or both be blank."));
+            if (!string.IsNullOrWhiteSpace(referencePath))
+                values.AddRange(["--spark-reference", referencePath, "--spark-reference-indices", referenceIndices]);
+            values.AddRange(["--spark-reference-guidance", Numeric(SparkReferenceGuidanceBox.Value)]);
+        }
         if (!string.IsNullOrWhiteSpace(requestedPython))
         {
             string python = requestedPython;
@@ -767,6 +812,10 @@ public sealed partial class MainPage : Page
         AppendCapability(text, root, "ema_vfi_model", "EMA-VFI Small model");
         AppendCapability(text, root, "flashvsr_model", "FlashVSR v1.1 model");
         AppendCapability(text, root, "seedvr2_model", "SeedVR2 3B FP8 model");
+        AppendCapability(text, root, "dloral_model", "DLoRAL core model");
+        AppendCapability(text, root, "osdenhancer_model", "OSDEnhancer v1.0 model");
+        AppendCapability(text, root, "sparkvsr_model", "SparkVSR Stage-2 model");
+        AppendCapability(text, root, "vfimamba_model", "VFIMamba S / Full models");
         AppendCapability(text, root, "ncnn_ifrnet", "IFRNet ncnn-vulkan");
         AppendCapability(text, root, "ncnn_span", "SPAN ncnn-vulkan");
         AppendCapability(text, root, "ncnn_cugan", "Real-CUGAN ncnn");
@@ -801,6 +850,10 @@ public sealed partial class MainPage : Page
         string? recommended = null;
         _flashVsrPython = null;
         _seedVr2Python = null;
+        _dloralPython = null;
+        _osdEnhancerPython = null;
+        _sparkVsrPython = null;
+        _vfiMambaPython = null;
         foreach (JsonElement environment in document.RootElement.EnumerateArray())
         {
             index++;
@@ -811,10 +864,14 @@ public sealed partial class MainPage : Page
             bool nvvfx = BoolProperty(environment, "nvvfx");
             bool flashvsr = BoolProperty(environment, "flashvsr");
             bool seedvr2 = BoolProperty(environment, "seedvr2");
+            bool dloral = BoolProperty(environment, "dloral");
+            bool osdenhancer = BoolProperty(environment, "osdenhancer");
+            bool sparkvsr = BoolProperty(environment, "sparkvsr");
+            bool vfimamba = BoolProperty(environment, "vfimamba");
             string torchVersion = StringProperty(environment, "torch_version", "-");
             string gpu = StringProperty(environment, "gpu_name", "-");
             text.AppendLine($"[{index}] {exe}");
-            text.AppendLine($"    Python {python} | PyTorch {(torch ? torchVersion : "--")} | CUDA {(cuda ? "OK" : "--")} | NV-VFX {(nvvfx ? "OK" : "--")} | FlashVSR {(flashvsr ? "OK" : "--")} | SeedVR2 {(seedvr2 ? "OK" : "--")}");
+            text.AppendLine($"    Python {python} | PyTorch {(torch ? torchVersion : "--")} | CUDA {(cuda ? "OK" : "--")} | NV-VFX {(nvvfx ? "OK" : "--")} | FlashVSR {(flashvsr ? "OK" : "--")} | SeedVR2 {(seedvr2 ? "OK" : "--")} | DLoRAL {(dloral ? "OK" : "--")} | VFIMamba {(vfimamba ? "OK" : "--")}");
             if (flashvsr)
             {
                 _flashVsrPython ??= exe;
@@ -822,6 +879,22 @@ public sealed partial class MainPage : Page
             if (seedvr2)
             {
                 _seedVr2Python ??= exe;
+            }
+            if (dloral)
+            {
+                _dloralPython ??= exe;
+            }
+            if (osdenhancer)
+            {
+                _osdEnhancerPython ??= exe;
+            }
+            if (sparkvsr)
+            {
+                _sparkVsrPython ??= exe;
+            }
+            if (vfimamba)
+            {
+                _vfiMambaPython ??= exe;
             }
             if (cuda)
             {
@@ -864,6 +937,10 @@ public sealed partial class MainPage : Page
         int nvvfx = 0;
         int flashvsr = 0;
         int seedvr2 = 0;
+        int dloral = 0;
+        int osdenhancer = 0;
+        int sparkvsr = 0;
+        int vfimamba = 0;
         foreach (JsonElement environment in document.RootElement.EnumerateArray())
         {
             environments++;
@@ -872,12 +949,20 @@ public sealed partial class MainPage : Page
             nvvfx += BoolProperty(environment, "nvvfx") ? 1 : 0;
             flashvsr += BoolProperty(environment, "flashvsr") ? 1 : 0;
             seedvr2 += BoolProperty(environment, "seedvr2") ? 1 : 0;
+            dloral += BoolProperty(environment, "dloral") ? 1 : 0;
+            osdenhancer += BoolProperty(environment, "osdenhancer") ? 1 : 0;
+            sparkvsr += BoolProperty(environment, "sparkvsr") ? 1 : 0;
+            vfimamba += BoolProperty(environment, "vfimamba") ? 1 : 0;
         }
         text.AppendLine($"  {(torch > 0 ? "✓" : "—")} PyTorch ({torch}/{environments})");
         text.AppendLine($"  {(cuda > 0 ? "✓" : "—")} CUDA ({cuda}/{environments})");
         text.AppendLine($"  {(nvvfx > 0 ? "✓" : "—")} NVIDIA VFX ({nvvfx}/{environments})");
         text.AppendLine($"  {(flashvsr > 0 ? "✓" : "—")} FlashVSR ({flashvsr}/{environments})");
         text.AppendLine($"  {(seedvr2 > 0 ? "✓" : "—")} SeedVR2 ({seedvr2}/{environments})");
+        text.AppendLine($"  {(dloral > 0 ? "✓" : "—")} DLoRAL ({dloral}/{environments})");
+        text.AppendLine($"  {(osdenhancer > 0 ? "✓" : "—")} OSDEnhancer ({osdenhancer}/{environments})");
+        text.AppendLine($"  {(sparkvsr > 0 ? "✓" : "—")} SparkVSR ({sparkvsr}/{environments})");
+        text.AppendLine($"  {(vfimamba > 0 ? "✓" : "—")} VFIMamba ({vfimamba}/{environments})");
     }
 
     private static void AppendCapability(StringBuilder text, JsonElement root, string property, string label)

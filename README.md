@@ -17,7 +17,7 @@ Light Video Enhancer 是一款面向 Windows 的视频超分、插帧与转码�
 | Windows 10/11 x64 | `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 按需下载 | 推荐给带宽和磁盘有限的用户；可切换 GitHub、代理镜像、自定义源或导入本地 ZIP。 |
 | Windows 7 SP1 x64 | `LightVideoEnhancer-Win7-x64.exe` | 全部内置 | Python 3.8.10 / Tk 的冻结兼容版，不提供下载页。 |
 
-两个 WinUI 包使用完全相同的 GUI 与后端协议；区别只在后端是否嵌入标准权重。下载的模型保存在 `%LOCALAPPDATA%\LightVideoEnhancer\models`，升级或替换程序目录不会删除。两版都内置 FFmpeg Worker 和 NCNN 执行器，不需要系统 FFmpeg。FlashVSR（约 6.5 GiB）和 SeedVR2（约 3.6 GiB）属于 Win10/11 可选重型模型，为避免把 Full 包扩大到十余 GiB，两种包都通过模型页按需下载并校验单文件 SHA-256。
+两个 WinUI 包使用完全相同的 GUI 与后端协议；区别只在后端是否嵌入标准权重。下载的模型保存在 `%LOCALAPPDATA%\LightVideoEnhancer\models`，升级或替换程序目录不会删除。两版都内置 FFmpeg Worker 和 NCNN 执行器，不需要系统 FFmpeg。FlashVSR、SeedVR2、DLoRAL、OSDEnhancer、SparkVSR 与 VFIMamba 属于 Win10/11 可选模型，为避免把 Full 包扩大数十 GiB，均通过模型页按需下载并逐文件校验 SHA-256。重型生成式模型和 VFIMamba 不参与自动选择。
 
 ### WinUI 3 现代前端
 
@@ -59,9 +59,9 @@ LTS 资产保持 v0.7.0 原构建不变；Full 与 Lite 内的 WinUI 前端逐�
    │
    ├─ 内嵌 FFmpeg 解码：CUDA / D3D11VA / dav1d / 软件回退
    │
-   ├─ 插帧：RIFE / EMA-VFI / RIFE NCNN / IFRNet NCNN / DIS / Farneback / CUDA 光流 / Blend
+   ├─ 插帧：RIFE / EMA-VFI / VFIMamba / RIFE NCNN / IFRNet NCNN / DIS / Farneback / CUDA 光流 / Blend
    │
-   ├─ 超分：驱动 VSR / NV-VFX / SPAN / Real-CUGAN / Real-ESRGAN / ESRGAN / FlashVSR / SeedVR2 / Lanczos
+   ├─ 超分：驱动 VSR / NV-VFX / SPAN / Real-CUGAN / Real-ESRGAN / ESRGAN / FlashVSR / SeedVR2 / DLoRAL / OSDEnhancer / SparkVSR / Lanczos
    │
    └─ 编码：NVENC / AMF / Media Foundation / x264 / x265 / SVT-AV1 / libaom
           └─ 可复制原视频音频，失败时保留同格式优先的自动回退
@@ -82,7 +82,10 @@ LTS 资产保持 v0.7.0 原构建不变；Full 与 Lite 内的 WinUI 前端逐�
 | Real-ESRGAN / `realesrgan` | Vulkan | 通用或动漫视频；提供轻量视频模型和 x4plus 系列。 |
 | ESRGAN classic / `esrgan` | Vulkan | 原始 ESRGAN x4 感知模型，偏锐利和纹理增强。 |
 | FlashVSR / `flashvsr` | PyTorch CUDA，Win10/11 | 实验性 4× 因果扩散视频超分；固定 29 帧窗口，需要 Python 3.11 和约 6.5 GiB 权重。 |
-| SeedVR2 / `seedvr2` | PyTorch CUDA，Win10/11 | 重型视频修复；3B FP8 + VAE，支持分块 VAE、CPU 卸载与模型交换，不参与自动选择。 |
+| SeedVR2 / `seedvr2` | PyTorch CUDA，Win10/11 | 重型视频修复；3B FP8、7B Q4/Sharp Q4，支持分块 VAE、CPU 卸载与模型交换，不参与自动选择。 |
+| DLoRAL / `dloral` | PyTorch CUDA，Win10/11 | 原生 4× 一阶段扩散视频超分；约 8.1 GiB 核心权重，手动启用。 |
+| OSDEnhancer / `osdenhancer` | PyTorch CUDA，Win10/11 | 固定 4× 超分 + 2× 插帧的联合模型；官方要求至少 80 GB 显存。 |
+| SparkVSR / `sparkvsr` | PyTorch CUDA，Win10/11 | 原生 4× 关键帧引导修复；42.2 GB 权重，有严格内存安全门。 |
 | Lanczos / `lanczos` | CPU | 稳定、清晰的传统缩放回退。 |
 | Bicubic / `bicubic` | CPU | 平滑的传统缩放回退。 |
 
@@ -101,6 +104,7 @@ Real-ESRGAN 质量档位：
 |---|---|---|
 | RIFE / `rife` | PyTorch CUDA/CPU | 质量优先；持久子进程、共享内存和静帧/切镜检测。 |
 | EMA-VFI Small / `ema_vfi` | PyTorch CUDA | 高效任意时刻插帧；2×–4× 复用相邻帧特征，持久隔离进程。 |
+| VFIMamba S / Full / `vfimamba` | PyTorch CUDA，Win10/11 | 状态空间插帧；四档质量映射 Small/Full、流场缩放与 TTA。兼容 `mamba_ssm` 时使用 CUDA 快路，否则回退很慢的官方 PyTorch 扫描。 |
 | RIFE NCNN / `rife_ncnn` | Vulkan | 不依赖 PyTorch，目录批处理，适合便携发布。 |
 | IFRNet NCNN / `ifrnet_ncnn` | Vulkan | 轻量跨厂商插帧；`fast` / `balanced` / `quality` 对应 S / Base / L 模型。 |
 | DIS / `dis` | CPU / OpenCV | 推荐的非 AI 通用方案，速度和运动补偿较均衡。 |
@@ -108,7 +112,9 @@ Real-ESRGAN 质量档位：
 | CUDA 光流 / `torch_flow` | PyTorch CUDA | 轻量块匹配光流。 |
 | 帧混合 / `blend` | CPU | 最快、最兼容，不进行运动估计。 |
 
-“插帧质量”只在后端确实暴露可调策略时启用。IFRNet、EMA-VFI 与光流后端会映射到各自模型或精度策略；RIFE PyTorch、RIFE NCNN 和帧混合使用固定或自动策略时，GUI 会禁用该控件。
+VFIMamba 的外部 CUDA Python 至少需要 `torch`、`timm==0.9.12` 与 `einops`。`mamba_ssm` 是可选加速项；没有兼容的 Windows CUDA 扩展时仍可运行，但官方 PyTorch 回退在 64×64 上也约需 23 秒/帧，只适合验证，不适合实际视频。
+
+“插帧质量”只在后端确实暴露可调策略时启用。IFRNet、EMA-VFI、VFIMamba 与光流后端会映射到各自模型或精度策略；RIFE PyTorch、RIFE NCNN 和帧混合使用固定或自动策略时，GUI 会禁用该控件。
 
 ### 编码
 

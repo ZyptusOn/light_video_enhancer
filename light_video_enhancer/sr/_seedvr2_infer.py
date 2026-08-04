@@ -1,11 +1,19 @@
-"""Persistent SeedVR2 3B FP8 low-VRAM inference worker."""
+"""Persistent SeedVR2 low-VRAM inference worker."""
 
 import argparse
+import contextlib
 import os
 import shutil
 import sys
 import tempfile
+import traceback
 import zipfile
+
+if os.name == "nt":
+    # A native CUDA/extension failure must close the worker pipe and return an
+    # error to the GUI, not leave a modal python.exe crash dialog behind.
+    import ctypes
+    ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002)
 
 import cv2
 import numpy as np
@@ -27,11 +35,18 @@ def _write(value) -> None:
     write_framed(sys.stdout.buffer, value)
 
 
-def _arguments(model_dir, quality, count, total_vram):
-    batch = max(5, ((int(count) - 1) // 4) * 4 + 1)
-    tile = 512 if total_vram <= 14 * 1024 ** 3 else 768
-    swap = 32 if total_vram <= 12 * 1024 ** 3 else (
-        28 if total_vram <= 16 * 1024 ** 3 else 16)
+def _arguments(model_dir, dit_model, model_family, quality, count, total_vram):
+    is_7b = model_family == "7b"
+    batch = 5 if is_7b else max(
+        5, ((int(count) - 1) // 4) * 4 + 1)
+    tile = 384 if is_7b and total_vram <= 14 * 1024 ** 3 else (
+        512 if total_vram <= 14 * 1024 ** 3 else 768)
+    if is_7b:
+        swap = 36 if total_vram <= 16 * 1024 ** 3 else (
+            30 if total_vram <= 24 * 1024 ** 3 else 16)
+    else:
+        swap = 32 if total_vram <= 12 * 1024 ** 3 else (
+            28 if total_vram <= 16 * 1024 ** 3 else 16)
     color = {
         "fast": "lab",
         "balanced": "lab",
@@ -48,7 +63,7 @@ def _arguments(model_dir, quality, count, total_vram):
         compile_dynamo_cache_size_limit=64,
         compile_dynamo_recompile_limit=128,
         model_dir=model_dir,
-        dit_model="seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+        dit_model=dit_model,
         blocks_to_swap=swap, swap_io_components=True,
         vae_encode_tiled=True, vae_encode_tile_size=tile,
         vae_encode_tile_overlap=64,
@@ -84,7 +99,10 @@ def _load_runtime(args):
     old_cwd = os.getcwd()
     os.chdir(runtime_dir)
     try:
-        import inference_cli
+        # The upstream runtime prints status lines during import. stdout is
+        # reserved for framed IPC, so route third-party text to stderr.
+        with contextlib.redirect_stdout(sys.stderr):
+            import inference_cli
     finally:
         os.chdir(old_cwd)
     inference_cli.debug.enabled = False
@@ -110,12 +128,13 @@ def _process(module, cache, args, request, total_vram):
     tensor = torch.from_numpy(
         np.ascontiguousarray(np.stack(frames))).to(torch.float16).div_(255)
     options = _arguments(
-        args["model_dir"], args.get("quality"), count, total_vram)
+        args["model_dir"], args["dit_model"], args.get("model_family", "3b"),
+        args.get("quality"), count, total_vram)
     options.resolution = min(
         int(args["dst_width"]), int(args["dst_height"]))
     options.max_resolution = max(
         int(args["dst_width"]), int(args["dst_height"]))
-    with torch.inference_mode():
+    with torch.no_grad(), contextlib.redirect_stdout(sys.stderr):
         result = module._single_gpu_direct_processing(
             tensor, options, "0", cache)
     if result.shape[0] < count:
@@ -146,6 +165,12 @@ def main() -> None:
         cache = {}
         properties = torch.cuda.get_device_properties(0)
         total_vram = int(properties.total_memory)
+        required_vram = int(float(args.get("min_vram_gib", 0)) * 1024 ** 3)
+        if total_vram < required_vram:
+            raise RuntimeError(
+                "SeedVR2 %s requires at least %.1f GiB VRAM; detected %.1f GiB" %
+                (args.get("model_family", "model"),
+                 required_vram / 1024 ** 3, total_vram / 1024 ** 3))
         _write({
             "ready": True,
             "gpu_name": properties.name,
@@ -160,6 +185,7 @@ def main() -> None:
                 _write(_process(
                     module, cache, args, request, total_vram))
             except Exception as exc:
+                traceback.print_exc(file=sys.stderr)
                 _write({"error": str(exc)})
                 break
     except Exception as exc:
