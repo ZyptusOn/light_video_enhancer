@@ -11,11 +11,11 @@ from .i18n import get_language, tr
 
 
 _SR_ENGINES = (
-    "auto", "dxva_vsr", "nvvfx", "span", "flashvsr", "seedvr2",
+    "auto", "dxva_vsr", "nvvfx", "span", "flashvsr", "seedvr2", "dloral", "osdenhancer", "sparkvsr",
     "realcugan", "realesrgan", "esrgan", "bicubic", "lanczos", "none",
 )
 _FI_ENGINES = (
-    "auto", "rife", "ema_vfi", "rife_ncnn", "ifrnet_ncnn",
+    "auto", "rife", "ema_vfi", "vfimamba", "rife_ncnn", "ifrnet_ncnn",
     "dis", "optical_flow", "torch_flow", "blend", "none",
 )
 _QUALITIES = ("fast", "balanced", "quality", "ultra")

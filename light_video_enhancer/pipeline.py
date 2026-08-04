@@ -221,6 +221,14 @@ class VideoEnhancer:
         requested_sr = cfg.sr_engine
         requested_fi = cfg.fi_engine
         requested_codec = cfg.encode.codec
+        if requested_sr == "osdenhancer":
+            if requested_fi not in {"auto", "none"}:
+                raise ValueError("OSDEnhancer already performs 2x interpolation; select fi-engine none")
+            cfg.fi_engine = "none"
+        if requested_sr == "sparkvsr":
+            # Reference indices describe original source frames.  Keeping SR
+            # first preserves that mapping when a separate FI stage is used.
+            cfg.sr_first = True
         caps = quick_capabilities()
         cfg.encode.codec = choose_codec(
             cfg.encode.codec, list(caps.get("gpus", ())),
@@ -355,12 +363,22 @@ class VideoEnhancer:
             self._dst_width, self._dst_height = self._requested_output_geometry()
         if cfg.sr_engine == "dxva_vsr" and (self._dst_width > 4096 or self._dst_height > 2160):
             raise ValueError("DXVA VSR 输出上限为 4096x2160；请降低倍率或改用其他超分引擎")
+        if cfg.sr_engine == "osdenhancer":
+            if cfg.fi_engine != "none":
+                raise ValueError("OSDEnhancer already performs 2x interpolation")
+            if (self._dst_width, self._dst_height) != (self._src_width * 4, self._src_height * 4):
+                raise ValueError("OSDEnhancer is a native joint 4x/2x model; select exactly 4x")
+        if cfg.sr_engine == "sparkvsr":
+            if (self._dst_width, self._dst_height) != (self._src_width * 4, self._src_height * 4):
+                raise ValueError("SparkVSR is a native 4x model; select exactly 4x")
         _log.info("输出: %dx%d @ %.3f fps", self._dst_width, self._dst_height,
                   self._output_fps())
         _log.info("管线: %s -> %s -> %s", cfg.sr_engine if cfg.sr_first else cfg.fi_engine,
                   cfg.fi_engine if cfg.sr_first else cfg.sr_engine, cfg.encode.codec)
 
     def _natural_fps(self) -> float:
+        if self._config.sr_engine == "osdenhancer":
+            return self._src_fps * 2
         return self._src_fps * (self._config.fi_multiplier if self._config.fi_engine != "none" else 1)
 
     def _output_fps(self) -> float:
@@ -478,7 +496,7 @@ class VideoEnhancer:
         ncnn_gpu = cfg.ncnn_gpu
         sr_torch_python = cfg.torch_python
         external_sr_runtime = (
-            cfg.sr_engine in {"flashvsr", "seedvr2"}
+            cfg.sr_engine in {"flashvsr", "seedvr2", "dloral", "osdenhancer", "sparkvsr"}
             or (cfg.sr_engine == "nvvfx" and getattr(sys, "frozen", False)))
         if external_sr_runtime and sr_torch_python is None:
             from ._env import get_python_for_feature
@@ -486,15 +504,23 @@ class VideoEnhancer:
         if cfg.sr_engine != "none":
             self._sr_engine = create_sr_engine(
                 cfg.sr_engine, device=cfg.device, torch_python=sr_torch_python,
-                ncnn_gpu=ncnn_gpu, quality=cfg.sr_quality)
+                ncnn_gpu=ncnn_gpu, quality=cfg.sr_quality,
+                spark_reference_path=cfg.spark_reference_path,
+                spark_reference_indices=cfg.spark_reference_indices,
+                spark_reference_guidance=cfg.spark_reference_guidance)
             self._sr_engine.initialize(self._src_width, self._src_height,
                                        self._dst_width, self._dst_height)
             _log.info("超分就绪: %s", self._sr_engine.name)
         if cfg.fi_engine != "none":
             torch_python = cfg.torch_python
-            if cfg.fi_engine in {"rife", "ema_vfi"} and torch_python is None:
+            if cfg.fi_engine == "vfimamba" and torch_python is None:
+                from ._env import get_python_for_feature
+                torch_python = get_python_for_feature("vfimamba")
+            elif cfg.fi_engine in {"rife", "ema_vfi"} and torch_python is None:
                 from ._env import get_torch_python
                 torch_python = get_torch_python()
+            if cfg.fi_engine == "vfimamba" and torch_python is None:
+                raise RuntimeError("未扫描到满足 VFIMamba 依赖的 CUDA Python 环境")
             self._fi_engine = create_fi_engine(
                 cfg.fi_engine, device=cfg.device, quality=cfg.fi_quality,
                 torch_python=torch_python, ncnn_gpu=ncnn_gpu)
@@ -625,7 +651,8 @@ class VideoEnhancer:
             self._dst_width * self._dst_height,
             self._sr_engine.batch_output_pixels
             if self._sr_engine is not None else 0)
-        output_multiplier = (self._config.fi_multiplier
+        output_multiplier = (2 if self._config.sr_engine == "osdenhancer"
+                             else self._config.fi_multiplier
                              if self._config.fi_engine != "none" else 1)
         budget = (384 if self._directory_chain_available() else 192) * 1024 * 1024
         max_output_frames = max(3, budget // max(1, largest_pixels * 3))
@@ -656,8 +683,9 @@ class VideoEnhancer:
             decoder.open()
             encoder.open()
             batch_size = self._batch_size()
-            output_per_batch = ((batch_size - 1) *
-                                (cfg.fi_multiplier if cfg.fi_engine != "none" else 1) + 1)
+            temporal_multiplier = (2 if cfg.sr_engine == "osdenhancer" else
+                                   (cfg.fi_multiplier if cfg.fi_engine != "none" else 1))
+            output_per_batch = ((batch_size - 1) * temporal_multiplier + 1)
             encoder_queue = max(4, min(64, output_per_batch))
             async_encoder = _AsyncEncoder(encoder, queue_size=encoder_queue)
             _log.info("批处理: 输入=%d, 编码队列=%d%s", batch_size, encoder_queue,

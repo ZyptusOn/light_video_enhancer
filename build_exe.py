@@ -58,6 +58,7 @@ def _data_files(profile, target):
         os.path.join("fi", "_ema_vfi_infer.py"),
         os.path.join("fi", "_ema_vfi_vendor"),
         os.path.join("fi", "ema_vfi"),
+        os.path.join("fi", "_vfimamba_infer.py"),
         os.path.join("sr", "_nvvfx_infer.py"),
         "ncnn",
     ]
@@ -65,6 +66,9 @@ def _data_files(profile, target):
         relative.extend([
             os.path.join("sr", "_flashvsr_infer.py"),
             os.path.join("sr", "_seedvr2_infer.py"),
+            os.path.join("sr", "_dloral_infer.py"),
+            os.path.join("sr", "_osdenhancer_infer.py"),
+            os.path.join("sr", "_sparkvsr_infer.py"),
             "external",
         ])
     result = []
@@ -164,9 +168,12 @@ def main() -> None:
         PACKAGE_NAME + ".sr.nvvfx_sr", PACKAGE_NAME + ".sr.realcugan_ncnn",
         PACKAGE_NAME + ".sr.realesrgan_ncnn", PACKAGE_NAME + ".sr.span_ncnn",
         PACKAGE_NAME + ".sr.flashvsr", PACKAGE_NAME + ".sr.seedvr2",
+        PACKAGE_NAME + ".sr.dloral", PACKAGE_NAME + ".sr.osdenhancer",
+        PACKAGE_NAME + ".sr.sparkvsr",
         PACKAGE_NAME + ".fi", PACKAGE_NAME + ".fi.rife",
         PACKAGE_NAME + ".fi.rife_ncnn", PACKAGE_NAME + ".fi.ifrnet_ncnn",
         PACKAGE_NAME + ".fi.ema_vfi",
+        PACKAGE_NAME + ".fi.vfimamba",
         PACKAGE_NAME + ".fi.optical_flow", PACKAGE_NAME + ".fi.dis_flow",
         PACKAGE_NAME + ".fi.blend", PACKAGE_NAME + ".ffmpeg_bridge",
         PACKAGE_NAME + ".model_manager", PACKAGE_NAME + ".frontend_protocol",

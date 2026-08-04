@@ -47,6 +47,34 @@ class EnvironmentDiscoveryTests(unittest.TestCase):
             with mock.patch.dict(os.environ, environment, clear=False):
                 self.assertIn(python_exe, _env._glob_python_candidates())
 
+    @unittest.skipUnless(os.name == "nt", "Windows path layout test")
+    def test_glob_discovery_includes_application_runtime(self):
+        with tempfile.TemporaryDirectory(prefix="lve-runtime-test-") as home:
+            local = os.path.join(home, "AppData", "Local")
+            python_exe = os.path.join(
+                local, "LightVideoEnhancer", "runtimes", "seedvr2",
+                "Scripts", "python.exe")
+            conda_python = os.path.join(
+                local, "LightVideoEnhancer", "runtimes", "flashvsr",
+                "python.exe")
+            os.makedirs(os.path.dirname(python_exe))
+            os.makedirs(os.path.dirname(conda_python))
+            with open(python_exe, "wb") as handle:
+                handle.write(b"test")
+            with open(conda_python, "wb") as handle:
+                handle.write(b"test")
+            environment = {
+                "USERPROFILE": home,
+                "LOCALAPPDATA": local,
+                "APPDATA": os.path.join(home, "AppData", "Roaming"),
+                "PROGRAMDATA": os.path.join(home, "ProgramData"),
+                "ProgramFiles": os.path.join(home, "Program Files"),
+                "ProgramFiles(x86)": os.path.join(home, "Program Files (x86)"),
+            }
+            with mock.patch.dict(os.environ, environment, clear=False):
+                self.assertIn(python_exe, _env._glob_python_candidates())
+                self.assertIn(conda_python, _env._glob_python_candidates())
+
     @unittest.skipUnless(os.name == "nt", "Windows alias test")
     def test_windows_store_alias_is_filtered(self):
         with tempfile.TemporaryDirectory(prefix="lve-env-test-") as root:

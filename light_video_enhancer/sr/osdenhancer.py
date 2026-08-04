@@ -1,6 +1,5 @@
-"""Optional FlashVSR v1.1 temporal super resolution adapter for Windows 10/11."""
+"""OSDEnhancer joint space-time video super-resolution adapter."""
 
-import math
 import os
 import shutil
 import subprocess
@@ -20,34 +19,37 @@ from .._shared_frames import FramedPipeReader, close_process_pipes, write_framed
 _log = get_logger(__name__)
 
 
-class FlashVSREngine(SuperResolutionEngine):
-    """Causal FlashVSR clips with seven-frame context across pipeline chunks."""
+class OSDEnhancerEngine(SuperResolutionEngine):
+    """Isolated 4x spatial and 2x temporal one-step diffusion adapter."""
 
-    preferred_batch_size = 29
-    _MODEL_FILES = (
-        "diffusion_pytorch_model_streaming_dmd.safetensors",
-        "LQ_proj_in.ckpt",
-        "TCDecoder.ckpt",
+    preferred_batch_size = 5
+    temporal_multiplier = 2
+    _FILES = (
+        "prompt_embeddings/empty.safetensors",
+        "scheduler/scheduler_config.json",
+        "transformer/config.json",
+        "transformer/diffusion_pytorch_model-00001-of-00002.safetensors",
+        "transformer/diffusion_pytorch_model-00002-of-00002.safetensors",
+        "transformer/diffusion_pytorch_model.safetensors.index.json",
+        "vae/config.json",
+        "vae/diffusion_pytorch_model.safetensors",
     )
 
     def __init__(self, device: str = "auto",
                  torch_python: Optional[str] = None,
-                 quality: str = "balanced"):
+                 quality: str = "quality"):
         self._torch_python = torch_python
-        self._quality = quality if quality in {
-            "fast", "balanced", "quality", "ultra"} else "balanced"
         self._src_w = self._src_h = self._dst_w = self._dst_h = 0
         self._proc = None
         self._reader = None
         self._stderr_thread = None
         self._stderr_lines: List[str] = []
-        self._history: List[np.ndarray] = []
         self._gpu_name = ""
 
     @property
     def name(self) -> str:
-        return "FlashVSR v1.1 Tiny (%s, %s, experimental)" % (
-            self._quality, self._gpu_name or "CUDA")
+        return "OSDEnhancer joint 4x/2x (%s, experimental)" % (
+            self._gpu_name or "CUDA")
 
     @property
     def supports_batch(self) -> bool:
@@ -55,79 +57,72 @@ class FlashVSREngine(SuperResolutionEngine):
 
     @property
     def batch_output_pixels(self) -> int:
-        return self._dst_w * self._dst_h * self.preferred_batch_size
+        return self._dst_w * self._dst_h * 9
 
     @property
     def batch_output_size(self):
-        return (self._dst_w, self._dst_h)
+        return self._dst_w, self._dst_h
 
     def initialize(self, src_width: int, src_height: int,
                    dst_width: int, dst_height: int) -> None:
         if os.name != "nt" or sys.getwindowsversion() < (10, 0):
-            raise RuntimeError("FlashVSR is supported only on Windows 10/11")
+            raise RuntimeError("OSDEnhancer is supported only on Windows 10/11")
         self._src_w, self._src_h = int(src_width), int(src_height)
         self._dst_w, self._dst_h = int(dst_width), int(dst_height)
-        ratio = max(dst_width / src_width, dst_height / src_height)
-        if not 3.5 <= ratio <= 4.5:
-            _log.warning(
-                "FlashVSR is trained and officially recommended for 4x; "
-                "the selected scale is %.2fx", ratio)
+        if (self._dst_w, self._dst_h) != (
+                self._src_w * 4, self._src_h * 4):
+            raise ValueError(
+                "OSDEnhancer is a native joint 4x/2x model; select exactly 4x")
 
-        runtime = get_pkg_file("external", "flashvsr_runtime.zip")
-        model_dir = get_model_dir("flashvsr-v1.1")
-        missing = [
-            os.path.join(model_dir, name) for name in self._MODEL_FILES
-            if not os.path.isfile(os.path.join(model_dir, name))
-        ]
-        if not os.path.isfile(runtime):
-            missing.insert(0, runtime)
+        runtime = get_pkg_file("external", "osdenhancer_runtime.zip")
+        model_dir = get_model_dir("osdenhancer-v1")
+        required = [runtime]
+        required.extend(os.path.join(model_dir, name) for name in self._FILES)
+        missing = [path for path in required if not os.path.isfile(path)]
         if missing:
             raise FileNotFoundError(
-                "FlashVSR runtime/model files are missing: " +
+                "OSDEnhancer runtime/model files are missing: " +
                 ", ".join(missing))
 
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        script = get_pkg_file("sr", "_flashvsr_infer.py")
         child_env = os.environ.copy()
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
+        child_env["HF_HUB_OFFLINE"] = "1"
+        child_env["TRANSFORMERS_OFFLINE"] = "1"
         self._proc = subprocess.Popen(
-            [self._torch_python or sys.executable, "-u", script],
+            [self._torch_python or sys.executable, "-u",
+             get_pkg_file("sr", "_osdenhancer_infer.py")],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, env=child_env, creationflags=flags)
+            stderr=subprocess.PIPE, env=child_env,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self._reader = FramedPipeReader(
-            self._proc.stdout, "lve-flashvsr-reader")
+            self._proc.stdout, "lve-osdenhancer-reader")
         self._stderr_thread = threading.Thread(
             target=self._read_stderr, args=(self._proc.stderr,), daemon=True)
         self._stderr_thread.start()
         write_framed(self._proc.stdin, {
             "runtime": runtime,
-            "model_dir": model_dir,
-            "quality": self._quality,
-            "dst_width": self._dst_w,
-            "dst_height": self._dst_h,
+            "checkpoint_path": model_dir,
         })
         try:
-            reply = self._reader.read(timeout=600)
+            reply = self._reader.read(timeout=900)
         except Exception as exc:
             error = self._stderr_text()
             self.release()
             raise RuntimeError(
-                "FlashVSR subprocess failed to start:\n%s" % error) from exc
+                "OSDEnhancer subprocess failed to start:\n%s" % error) from exc
         if not isinstance(reply, dict) or not reply.get("ready"):
             error = reply.get("error", "invalid startup reply") if isinstance(
                 reply, dict) else "invalid startup reply"
+            detail = self._stderr_text()
             self.release()
-            raise RuntimeError("FlashVSR startup failed: %s" % error)
+            if detail:
+                error += "\n" + detail
+            raise RuntimeError("OSDEnhancer startup failed: %s" % error)
         self._gpu_name = str(reply.get("gpu_name", "CUDA"))
         _log.info(
-            "FlashVSR v1.1 ready: %dx%d -> %dx%d (%s, experimental)",
-            src_width, src_height, dst_width, dst_height, self._quality)
-
-    @staticmethod
-    def _allowed_count_at_least(count: int) -> int:
-        # Official Tiny Long appends four look-ahead frames and requires 8n+1.
-        return max(21, int(math.ceil((count + 3) / 8.0) * 8 - 3))
+            "OSDEnhancer ready: %dx%d@1x -> %dx%d@2x (%s, experimental)",
+            src_width, src_height, dst_width, dst_height, self._gpu_name)
 
     def process(self, frame: np.ndarray) -> np.ndarray:
         return self.process_batch([frame])[0]
@@ -137,49 +132,36 @@ class FlashVSREngine(SuperResolutionEngine):
             return []
         if self._proc is None or self._proc.poll() is not None:
             raise RuntimeError(
-                "FlashVSR subprocess exited:\n%s" % self._stderr_text())
-
-        # The main pipeline overlaps the previous last frame. Prefix another
-        # seven causal-context frames, then trim them from the worker result.
-        prefix = self._history[-8:-1] if self._history else []
-        logical = list(prefix) + list(frames)
-        target_count = self._allowed_count_at_least(len(logical))
-        padded = logical + [logical[-1]] * (target_count - len(logical))
-        work = tempfile.mkdtemp(prefix="lve_flashvsr_")
+                "OSDEnhancer subprocess exited:\n%s" % self._stderr_text())
+        work = tempfile.mkdtemp(prefix="lve_osdenhancer_")
         try:
             input_dir = os.path.join(work, "input")
             output_dir = os.path.join(work, "output")
-            write_frames(padded, input_dir, "FlashVSR")
+            write_frames(frames, input_dir, "OSDEnhancer")
             write_framed(self._proc.stdin, {
                 "input_dir": input_dir,
                 "output_dir": output_dir,
-                "count": target_count,
+                "input_count": len(frames),
             })
+            expected = (len(frames) - 1) * 2 + 1
             try:
-                reply = self._reader.read(timeout=3600)
+                reply = self._reader.read(timeout=7200)
             except Exception as exc:
                 raise RuntimeError(
-                    "FlashVSR inference communication failed:\n%s" %
+                    "OSDEnhancer inference communication failed:\n%s" %
                     self._stderr_text()) from exc
-            if not isinstance(reply, dict) or reply.get("count") != target_count:
+            if not isinstance(reply, dict) or reply.get("count") != expected:
                 error = reply.get("error", "invalid reply") if isinstance(
                     reply, dict) else "invalid reply"
                 detail = self._stderr_text()
                 if detail:
                     error += "\n" + detail
-                raise RuntimeError("FlashVSR inference failed: %s" % error)
-            outputs = read_frames(
-                output_dir, target_count,
-                (self._dst_w, self._dst_h), "FlashVSR")
-            start = len(prefix)
-            result = outputs[start:start + len(frames)]
+                raise RuntimeError("OSDEnhancer inference failed: %s" % error)
+            return read_frames(
+                output_dir, expected,
+                (self._dst_w, self._dst_h), "OSDEnhancer")
         finally:
             shutil.rmtree(work, ignore_errors=True)
-
-        timeline = list(frames) if not self._history else (
-            self._history + list(frames[1:]))
-        self._history = timeline[-8:]
-        return result
 
     def _read_stderr(self, pipe) -> None:
         try:
@@ -191,7 +173,7 @@ class FlashVSREngine(SuperResolutionEngine):
             pass
 
     def _stderr_text(self) -> str:
-        return "\n".join(self._stderr_lines[-30:])
+        return "\n".join(self._stderr_lines[-50:])
 
     def release(self) -> None:
         process, self._proc = self._proc, None
@@ -212,4 +194,6 @@ class FlashVSREngine(SuperResolutionEngine):
         if self._stderr_thread and self._stderr_thread.is_alive():
             self._stderr_thread.join(timeout=1)
         close_process_pipes(process)
-        self._history = []
+
+    def __del__(self):
+        self.release()

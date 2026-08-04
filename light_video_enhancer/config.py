@@ -37,6 +37,9 @@ class ProcessConfig:
     sr_first: bool = False
     ncnn_gpu: Optional[int] = None
     keep_partial: bool = False
+    spark_reference_path: Optional[str] = None
+    spark_reference_indices: str = ""
+    spark_reference_guidance: float = 1.0
 
     def validate(self) -> None:
         if not self.input_path:
@@ -61,3 +64,5 @@ class ProcessConfig:
             raise ValueError("未知的超分质量: %s" % self.sr_quality)
         if self.fi_quality not in QUALITY_CHOICES:
             raise ValueError("未知的插帧质量: %s" % self.fi_quality)
+        if not 0.0 <= self.spark_reference_guidance <= 4.0:
+            raise ValueError("SparkVSR 参考引导强度必须在 0 到 4 之间")

@@ -54,6 +54,7 @@ def print_system_info(torch_python: Optional[str] = None, deep: bool = False) ->
         ("D3D11 VSR Bridge", caps["vsr_dll"]),
         ("RIFE PyTorch model", caps["rife_model"]),
         ("EMA-VFI Small model", caps["ema_vfi_model"]),
+        ("VFIMamba S / Full models", caps["vfimamba_model"]),
         ("RIFE ncnn-vulkan", caps["ncnn_rife"]),
         ("IFRNet ncnn-vulkan", caps["ncnn_ifrnet"]),
         ("SPAN ncnn-vulkan", caps["ncnn_span"]),
