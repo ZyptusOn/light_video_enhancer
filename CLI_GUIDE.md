@@ -59,10 +59,11 @@ Choose the main pipeline explicitly:
 ## Common choices / 常用取值
 
 - Super resolution / 超分：`auto`, `dxva_vsr`, `nvvfx`, `span`,
-  `flashvsr`, `seedvr2`, `realcugan`, `realesrgan`, `esrgan`,
-  `bicubic`, `lanczos`, `none`
-- Interpolation / 插帧：`auto`, `rife`, `ema_vfi`, `rife_ncnn`,
-  `ifrnet_ncnn`, `dis`, `optical_flow`, `torch_flow`, `blend`, `none`
+  `flashvsr`, `seedvr2`, `dloral`, `osdenhancer`, `sparkvsr`,
+  `realcugan`, `realesrgan`, `esrgan`, `bicubic`, `lanczos`, `none`
+- Interpolation / 插帧：`auto`, `rife`, `ema_vfi`, `vfimamba`,
+  `rife_ncnn`, `ifrnet_ncnn`, `dis`, `optical_flow`, `torch_flow`,
+  `blend`, `none`
 - Quality / 质量：`fast`, `balanced`, `quality`, `ultra`
 - Container / 容器：`mp4`, `mkv`, `mov`
 - NCNN device / NCNN 设备：`auto`, `cpu`, or a Vulkan GPU index
