@@ -2,6 +2,12 @@
 
 ## 未发布 / Unreleased
 
+## v0.8.0 — 重型模型接口与最新稳定组件
+
+- 新增 DLoRAL、OSDEnhancer、SparkVSR 超分接口与 VFIMamba S/Full 插帧接口；大型权重按需下载，隔离运行时失败时不会拖垮 GUI 或主处理进程。
+- SeedVR2 增加 7B Q4 与 7B Sharp Q4 档位；模型管理器加入断点续传、Google Drive 下载和更完整的逐文件校验。
+- WinUI 从 Windows App SDK 1.8.6 升级至当前稳定版 2.3.1；继续使用 .NET SDK 10.0.302 与 Windows SDK BuildTools 10.0.28000.2270，并保持 Windows 10 1809 最低版本。
+- v0.8.0 重新构建 WinUI Full/Lite 与 Windows 7 Tk LTS 三套资产；Full/Lite 前端逐字节相同，空模型目录下分别内置 10/0 个标准模型包。
 - 将便携后端改为可独立运行的完整控制台 CLI：无参数交互向导、分组双语 `--help`、系统信息、能力/环境/模型协议查询与完整视频处理均不依赖 GUI。
 - 后端 PyInstaller 入口不再导入 Tkinter、Tcl/Tk、IDLE、旧 Tk GUI 或 `light_video_enhancer.gui`；Windows 7 Tk LTS 源码继续与后端共享稳定处理配置和核心模块。
 - CLI 与后端 EXE 的向导、帮助、处理日志和主要错误默认按 Windows 用户界面语言选择中文或英文，支持 `--language` 覆盖；协议 JSON 保持标准输出纯净，诊断日志移至标准错误。

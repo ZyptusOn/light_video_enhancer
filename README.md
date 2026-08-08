@@ -27,30 +27,26 @@ Windows 7 继续提供包含全部权重的 Tk LTS 包，但不再发布 Windows
 
 开发与便携打包见 [`windows/README.md`](windows/README.md)，前后端边界和兼容策略见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
-### v0.7.0 发布包校验值
+### v0.8.0 发布包校验值
 
-| 文件 | SHA-256 |
-|---|---|
-| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | `5330DBA0CA5580641AB4743934D0434480E1DF05CC8DAA6840113B5FA4889F61` |
-| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | `96EC88285DD3801B372F96E1D0947F5F73DD2BC63C5BF3BEF3934C64BB02A0CE` |
-| `LightVideoEnhancer-Win7-x64.exe` | `AF8D040BF899B0F14235796104187F5D707580C977E322C5D9FE9830D9CBA842` |
+| 文件 | 大小 | SHA-256 |
+|---|---:|---|
+| `LightVideoEnhancer-WinUI3-Full-Win10-11-x64.zip` | 389.18 MiB | `676610FF33B382362551DD58F554FB0861AA6552FD10FB58C913EE4C18A93166` |
+| `LightVideoEnhancer-WinUI3-Lite-Win10-11-x64.zip` | 152.56 MiB | `1B5F108AD406C8D8B2FF6924B748BBE9A9D43BD587C83476F0F06B08A3739E3D` |
+| `LightVideoEnhancer-Win7-x64.exe` | 318.97 MiB | `8782F7A5580793417884E0B1A831476BD46AB1A25EDC2A19F220CA83F539FEEA` |
 
-Full 与 Lite 已在 2026-07-27 用提交 `9cd9088` 原地更新：独立 CLI 会在需要
-RIFE / NV-VFX 时按需发现 CUDA Python，初始化失败时也会保留错误窗口。Win7
-LTS 资产保持 v0.7.0 原构建不变；Full 与 Lite 内的 WinUI 前端逐字节相同。
+Full 与 Lite 使用逐字节相同的 WinUI 前端；Full 在空模型目录中内置 10 个标准模型包，Lite 不内置权重。DLoRAL、OSDEnhancer、SparkVSR、SeedVR2、FlashVSR 与 VFIMamba 等重型权重继续按需下载，不会进入标准发行包。
 
-## v0.7.0 亮点
+## v0.8.0 亮点
 
-- 新增 IFRNet S/Base/L NCNN 插帧、SPAN NCNN 超分与 EMA-VFI Small CUDA 插帧。
-- 可按需安装 FlashVSR v1.1 和 SeedVR2 3B FP8；重型算法不会自动选择或进入标准发行包。
-- 自动选择器会综合真实输入尺寸、目标分辨率、质量、阶段顺序、实测吞吐、已安装模型和显式扫描到的运行环境。
-- 编码器自动选择只使用后端实际报告的 NVENC、AMF、Media Foundation、x264/x265 与 AV1 编码器。
-- 新增三种标准模型下载包；Full 内置 10 个标准包，Lite 通过同一 WinUI 下载页按需安装。
-- Real-ESRGAN 2×/3× 使用原生倍率模型；修复 SPAN 的输出量程、BGR/RGB 顺序和黑帧问题。
-- Full、Lite 与 Win7 LTS 三套包全部按 v0.7.0 重建并验证。
+- 新增 DLoRAL、OSDEnhancer、SparkVSR 超分接口与 VFIMamba S/Full 插帧接口，均使用隔离运行时与显式环境门控。
+- SeedVR2 扩展 7B Q4 与 7B Sharp Q4 档位；模型下载支持断点续传、Google Drive 和逐文件 SHA-256 校验。
+- WinUI 升级至稳定版 Windows App SDK 2.3.1，并继续面向 Windows 10 1809 及以上系统自包含发布。
+- 独立 CLI、WinUI 与模型管理器共用同一后端协议；重型生成式模型和 VFIMamba 不参与自动选择。
+- Full、Lite 与 Win7 LTS 三套包均按 v0.8.0 重建并通过启动及协议验证。
 
 完整变化和发布说明见 [CHANGELOG.md](CHANGELOG.md) 与
-[`docs/RELEASE_NOTES_v0.7.0.md`](docs/RELEASE_NOTES_v0.7.0.md)。
+[`docs/RELEASE_NOTES_v0.8.0.md`](docs/RELEASE_NOTES_v0.8.0.md)。
 
 ## 处理流水线
 
